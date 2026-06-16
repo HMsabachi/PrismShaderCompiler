@@ -9,6 +9,7 @@
     includedirs {
         "include/PrismShaderCore",
         "src",
+        "..\\vendor\\json\\include",
         -- TODO Phase 2: "..\\vendor\\glslang",
         -- TODO Phase 3: "..\\vendor\\SPIRV-Cross",
     }

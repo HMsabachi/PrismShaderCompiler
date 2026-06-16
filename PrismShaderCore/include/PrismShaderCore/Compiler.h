@@ -3,9 +3,11 @@
 #include "Log.h"
 #include "Callback.h"
 #include "PSL/AST.h"
+#include "Pipeline/PipelineState.h"
 
 #include <string>
 #include <vector>
+#include <optional>
 
 namespace PrismShaderCompiler
 {
@@ -14,6 +16,7 @@ struct PassInfo
 {
     std::string Name;
     std::unordered_map<std::string, std::string> Tags;
+    std::optional<PipelineState> RenderState;
 };
 
 struct CompiledShader
@@ -22,9 +25,10 @@ struct CompiledShader
     int LOD = 200;
 
     std::vector<AST::ShaderUniform> Uniforms;
-    std::vector<PassInfo>           Passes;
-    std::vector<std::string>        Keywords;
-    PropertyLayout                  MaterialLayout;
+    std::vector<PassInfo> Passes;
+    std::vector<std::string> Keywords;
+    PropertyLayout MaterialLayout;
+    std::optional<PipelineState> RenderState;
 
     std::vector<AST::GLSLCode> PassGLSL;
 };

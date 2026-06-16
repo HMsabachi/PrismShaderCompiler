@@ -40,16 +40,11 @@ CompiledShader ShaderCompiler::Compile(const std::string& source,
         return result;
     }
 
-    result.ShaderName     = std::move(doc.ShaderName);
-    result.LOD            = doc.LOD;
-    result.Uniforms       = std::move(doc.Uniforms);
+    result.ShaderName = std::move(doc.ShaderName);
+    result.LOD = doc.LOD;
+    result.Uniforms = std::move(doc.Uniforms);
     result.MaterialLayout = std::move(doc.MaterialLayout);
-
-    for (auto& passDef : doc.Passes)
-    {
-        result.Passes.push_back({passDef.Name, passDef.Tags});
-        result.PassGLSL.push_back(std::move(passDef.Glsl));
-    }
+    result.RenderState = doc.RenderState;
 
     for (auto& passDef : doc.Passes)
     {
@@ -57,11 +52,13 @@ CompiledShader ShaderCompiler::Compile(const std::string& source,
         {
             for (auto& kw : pragma.Keywords)
             {
-                if (std::find(result.Keywords.begin(), result.Keywords.end(), kw)
-                    == result.Keywords.end())
+                if (std::find(result.Keywords.begin(), result.Keywords.end(), kw) == result.Keywords.end())
                     result.Keywords.push_back(kw);
             }
         }
+
+        result.Passes.push_back({passDef.Name, passDef.Tags, passDef.RenderState});
+        result.PassGLSL.push_back(std::move(passDef.Glsl));
     }
 
     return result;
@@ -94,7 +91,7 @@ PassOutput ShaderCompiler::Generate(const CompiledShader& shader,
                                   shader.Uniforms,
                                   shader.ShaderName,
                                   keywords);
-    out.VertexShader   = std::move(glsl.Vertex);
+    out.VertexShader = std::move(glsl.Vertex);
     out.FragmentShader = std::move(glsl.Fragment);
     return out;
 }

@@ -1,4 +1,5 @@
 ﻿#include <PrismShaderCore/Compiler.h>
+#include <PrismShaderCore/Metadata.h>
 #include <CLI/CLI11.hpp>
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -24,12 +25,14 @@ int main(int argc, char* argv[])
     std::string engineDir  = "Assets/Engine";
     std::vector<std::string> defines;
     bool verbose = false;
+    bool jsonOutput = false;
 
     app.add_option("input", input, "Input .Shader file")->required();
     app.add_option("-o,--output", outputDir, "Output directory");
     app.add_option("-I", includeDir, "Include search path");
     app.add_option("-E", engineDir, "Engine header path");
     app.add_option("-D", defines, "Define shader keyword");
+    app.add_flag("--json", jsonOutput, "Output metadata as JSON");
     app.add_flag("-v,--verbose", verbose, "Verbose output");
 
     try {
@@ -76,7 +79,6 @@ int main(int argc, char* argv[])
         std::string base = shader.Passes.size() > 1
             ? shader.ShaderName + "." + shader.Passes[i].Name
             : shader.ShaderName;
-        // 把名字里的路径分隔符替换掉
         for (auto& c : base)
             if (c == '/' || c == '\\') c = '_';
 
@@ -86,6 +88,16 @@ int main(int argc, char* argv[])
         WriteFile(vertPath.string(), out.VertexShader);
         WriteFile(fragPath.string(), out.FragmentShader);
         spdlog::info("{}.vert / {}.frag", base, base);
+    }
+
+    if (jsonOutput)
+    {
+        std::string base = shader.ShaderName;
+        for (auto& c : base)
+            if (c == '/' || c == '\\') c = '_';
+        auto jsonPath = std::filesystem::path(outputDir) / (base + ".meta.json");
+        WriteFile(jsonPath.string(), psc::ToJson(shader));
+        spdlog::info("{}.meta.json", base);
     }
 
     spdlog::info("done: {} pass(es)", shader.Passes.size());
