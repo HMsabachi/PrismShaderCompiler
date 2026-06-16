@@ -26,15 +26,12 @@ outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
         defines "PSC_DEBUG"
         optimize "Off"
         symbols "On"
-        runtime "Debug"
 
     filter "configurations:Release"
         defines { "PSC_RELEASE", "NDEBUG" }
         optimize "On"
-        runtime "Release"
 
     filter "configurations:Dist"
         defines { "PSC_DIST", "NDEBUG" }
         optimize "On"
-        runtime "Release"
         symbols "Off"

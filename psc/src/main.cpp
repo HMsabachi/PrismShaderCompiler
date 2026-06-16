@@ -75,7 +75,7 @@ int main(int argc, char* argv[])
 
     for (uint32_t i = 0; i < shader.Passes.size(); ++i)
     {
-        auto out = compiler.Generate(shader, i, defines);
+        auto out = compiler.GenerateGLSL(shader, i, defines);
         std::string base = shader.Passes.size() > 1
             ? shader.ShaderName + "." + shader.Passes[i].Name
             : shader.ShaderName;

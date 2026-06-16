@@ -37,6 +37,10 @@ struct PassOutput
 {
     std::string VertexShader;
     std::string FragmentShader;
+    std::vector<uint32_t> SpirvVertex;
+    std::vector<uint32_t> SpirvFragment;
+    std::vector<std::string> Errors;
+    std::vector<std::string> Warnings;
 };
 
 struct CompilerConfig
@@ -66,9 +70,12 @@ public:
                            const std::string& virtualPath = "");
     CompiledShader CompileFile(const std::string& filePath);
 
-    PassOutput Generate(const CompiledShader& shader,
-                        uint32_t passIndex,
-                        const std::vector<std::string>& keywords = {});
+    PassOutput GenerateGLSL(const CompiledShader& shader,
+                             uint32_t passIndex,
+                             const std::vector<std::string>& keywords = {});
+    PassOutput GenerateSPIRV(const CompiledShader& shader,
+                              uint32_t passIndex,
+                              const std::vector<std::string>& keywords = {});
 
     const CompilerConfig& GetConfig() const { return m_Config; }
 

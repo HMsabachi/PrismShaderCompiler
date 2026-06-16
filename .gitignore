@@ -16,6 +16,4 @@ vendor/lib/
 *.suo
 *.user
 
-# OS
-.DS_Store
-Thumbs.db
+

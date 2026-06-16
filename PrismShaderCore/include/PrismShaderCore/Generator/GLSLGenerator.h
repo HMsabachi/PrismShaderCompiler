@@ -1,29 +1,26 @@
 ﻿#pragma once
 
 #include "../Base.h"
-#include "../PSL/AST.h"
-#include "../Property/PropertyType.h"
 
+#include "../PSL/Common.h"
 #include <string>
 #include <vector>
 
 namespace PrismShaderCompiler
 {
 
-struct CompilerConfig;
-
-namespace GLSLGen
+struct SpirvEntry
 {
-    struct Output { std::string Vertex; std::string Fragment; };
+    std::vector<uint32_t> Vertex;
+    std::vector<uint32_t> Fragment;
+};
 
-    void PSC_API SetConfig(const CompilerConfig& config);
+struct GlslOutput
+{
+    std::string Vertex;
+    std::string Fragment;
+};
 
-    Output PSC_API Generate(
-        const AST::GLSLCode& glsl,
-        const std::vector<AST::ShaderUniform>& uniforms,
-        const std::string& filePath,
-        const std::vector<std::string>& activeKeywords = {}
-    );
-}
+GlslOutput PSC_API DecompileSPIRV(const SpirvEntry& spirv);
 
 } // namespace PrismShaderCompiler

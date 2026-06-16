@@ -23,7 +23,7 @@
     }
 
     filter "configurations:Debug"
-        runtime "Debug"
+        runtime "Release"
 
     filter "configurations:Release"
         runtime "Release"

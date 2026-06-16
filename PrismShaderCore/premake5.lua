@@ -10,13 +10,12 @@
         "include/PrismShaderCore",
         "src",
         "..\\vendor\\json\\include",
-        -- TODO Phase 2: "..\\vendor\\glslang",
-        -- TODO Phase 3: "..\\vendor\\SPIRV-Cross",
+        "..\\vendor\\glslang",
+        "..\\vendor\\SPIRV-Cross",
     }
 
-    -- TODO Phase 2+: uncomment when vendor libs are built
-    -- libdirs { "..\\vendor\\lib" }
-    -- links { "glslang", "SPIRV", "OGLCompiler", "OSDependent", "spirv-cross-glsl" }
+    libdirs { "..\\vendor\\lib" }
+    links { "glslang", "SPIRV", "OSDependent", "glslang-default-resource-limits", "spirv-cross-glsl", "spirv-cross-core" }
 
     defines { "PSC_BUILD" }
 
@@ -27,7 +26,7 @@
     }
 
     filter "configurations:Debug"
-        runtime "Debug"
+        runtime "Release"
 
     filter "configurations:Release"
         runtime "Release"
