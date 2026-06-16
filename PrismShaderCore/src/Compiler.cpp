@@ -6,6 +6,8 @@
 #include "Generator/IRGenerator.h"
 #include "Generator/SpirvGenerator.h"
 #include "Generator/GLSLGenerator.h"
+#include "Generator/HLSLGenerator.h"
+#include "Generator/MSLGenerator.h"
 
 namespace PrismShaderCompiler
 {
@@ -151,6 +153,26 @@ PassOutput ShaderCompiler::GenerateSPIRV(const CompiledShader& shader,
     for (auto& e : fsSPV.Errors) out.Errors.push_back(std::move(e));
     for (auto& w : fsSPV.Warnings) out.Warnings.push_back(std::move(w));
 
+    return out;
+}
+
+PassOutput ShaderCompiler::GenerateHLSL(const CompiledShader& shader,
+                                         uint32_t passIndex,
+                                         const std::vector<std::string>& keywords)
+{
+    auto out = GenerateSPIRV(shader, passIndex, keywords);
+    out.VertexShader   = DecompileHLSL(out.SpirvVertex);
+    out.FragmentShader = DecompileHLSL(out.SpirvFragment);
+    return out;
+}
+
+PassOutput ShaderCompiler::GenerateMSL(const CompiledShader& shader,
+                                        uint32_t passIndex,
+                                        const std::vector<std::string>& keywords)
+{
+    auto out = GenerateSPIRV(shader, passIndex, keywords);
+    out.VertexShader   = DecompileMSL(out.SpirvVertex);
+    out.FragmentShader = DecompileMSL(out.SpirvFragment);
     return out;
 }
 

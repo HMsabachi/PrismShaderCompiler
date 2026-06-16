@@ -73,6 +73,12 @@ public:
     PassOutput GenerateGLSL(const CompiledShader& shader,
                              uint32_t passIndex,
                              const std::vector<std::string>& keywords = {});
+    PassOutput GenerateHLSL(const CompiledShader& shader,
+                             uint32_t passIndex,
+                             const std::vector<std::string>& keywords = {});
+    PassOutput GenerateMSL(const CompiledShader& shader,
+                            uint32_t passIndex,
+                            const std::vector<std::string>& keywords = {});
     PassOutput GenerateSPIRV(const CompiledShader& shader,
                               uint32_t passIndex,
                               const std::vector<std::string>& keywords = {});

@@ -15,9 +15,16 @@ static void WriteFile(const std::string& path, const std::string& content)
     if (out) out.write(content.data(), content.size());
 }
 
+static void WriteBinaryFile(const std::string& path, const std::vector<uint32_t>& data)
+{
+    std::ofstream out(path, std::ios::binary);
+    if (out)
+        out.write(reinterpret_cast<const char*>(data.data()), data.size() * sizeof(uint32_t));
+}
+
 int main(int argc, char* argv[])
 {
-    CLI::App app{"psc — Prism Shader Compiler"};
+    CLI::App app{"psc — Prism Shader Compiler / Prism着色器编译器"};
 
     std::string input;
     std::string outputDir = ".";
@@ -25,15 +32,26 @@ int main(int argc, char* argv[])
     std::string engineDir  = "Assets/Engine";
     std::vector<std::string> defines;
     bool verbose = false;
-    bool jsonOutput = false;
 
-    app.add_option("input", input, "Input .Shader file")->required();
-    app.add_option("-o,--output", outputDir, "Output directory");
-    app.add_option("-I", includeDir, "Include search path");
-    app.add_option("-E", engineDir, "Engine header path");
-    app.add_option("-D", defines, "Define shader keyword");
-    app.add_flag("--json", jsonOutput, "Output metadata as JSON");
-    app.add_flag("-v,--verbose", verbose, "Verbose output");
+    enum class Target : uint8_t { GLSL = 1, HLSL = 2, MSL = 4, SPIRV = 8, JSON = 16, All = 31 };
+    uint8_t targets = 0;
+
+    auto addTarget = [&](std::string flags, Target t, std::string desc) {
+        app.add_flag(flags, [&targets, t](int64_t) { targets |= (uint8_t)t; }, desc);
+    };
+
+    app.add_option("input", input, "Input .Shader file / 输入文件")->required();
+    app.add_option("-o,--output", outputDir, "Output directory / 输出目录");
+    app.add_option("-I", includeDir, "Include search path / Include搜索路径");
+    app.add_option("-E", engineDir, "Engine header path / 引擎头文件路径");
+    app.add_option("-D", defines, "Define shader keyword / 定义关键字");
+    addTarget("-g,--glsl",  Target::GLSL,  "Generate GLSL / 生成GLSL");
+    addTarget("-l,--hlsl",  Target::HLSL,  "Generate HLSL / 生成HLSL");
+    addTarget("-m,--msl",   Target::MSL,   "Generate MSL / 生成MSL");
+    addTarget("-s,--spirv", Target::SPIRV, "Generate SPIR-V / 生成SPIR-V");
+    addTarget("-j,--json",  Target::JSON,  "Output metadata JSON / 输出元数据JSON");
+    addTarget("-a,--all",   Target::All,   "Generate all targets + JSON / 生成全部目标+JSON");
+    app.add_flag("-v,--verbose", verbose, "Verbose output / 详细输出");
 
     try {
         app.parse(argc, argv);
@@ -41,7 +59,6 @@ int main(int argc, char* argv[])
         return app.exit(e);
     }
 
-    // Logging
     auto sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
     auto logger = std::make_shared<spdlog::logger>("psc", sink);
     spdlog::set_default_logger(logger);
@@ -73,24 +90,47 @@ int main(int argc, char* argv[])
 
     std::filesystem::create_directories(outputDir);
 
+    if (!(targets & 15)) targets |= (uint8_t)Target::GLSL; // 默认 glsl
+
     for (uint32_t i = 0; i < shader.Passes.size(); ++i)
     {
-        auto out = compiler.GenerateGLSL(shader, i, defines);
         std::string base = shader.Passes.size() > 1
             ? shader.ShaderName + "." + shader.Passes[i].Name
             : shader.ShaderName;
         for (auto& c : base)
             if (c == '/' || c == '\\') c = '_';
 
-        auto vertPath = std::filesystem::path(outputDir) / (base + ".vert");
-        auto fragPath = std::filesystem::path(outputDir) / (base + ".frag");
-
-        WriteFile(vertPath.string(), out.VertexShader);
-        WriteFile(fragPath.string(), out.FragmentShader);
-        spdlog::info("{}.vert / {}.frag", base, base);
+        if (targets & (uint8_t)Target::GLSL)
+        {
+            auto out = compiler.GenerateGLSL(shader, i, defines);
+            WriteFile((std::filesystem::path(outputDir) / (base + ".vert")).string(), out.VertexShader);
+            WriteFile((std::filesystem::path(outputDir) / (base + ".frag")).string(), out.FragmentShader);
+            spdlog::info("{}.vert / {}.frag", base, base);
+        }
+        if (targets & (uint8_t)Target::HLSL)
+        {
+            auto out = compiler.GenerateHLSL(shader, i, defines);
+            WriteFile((std::filesystem::path(outputDir) / (base + ".vert.hlsl")).string(), out.VertexShader);
+            WriteFile((std::filesystem::path(outputDir) / (base + ".frag.hlsl")).string(), out.FragmentShader);
+            spdlog::info("{}.vert.hlsl / {}.frag.hlsl", base, base);
+        }
+        if (targets & (uint8_t)Target::MSL)
+        {
+            auto out = compiler.GenerateMSL(shader, i, defines);
+            WriteFile((std::filesystem::path(outputDir) / (base + ".vert.metal")).string(), out.VertexShader);
+            WriteFile((std::filesystem::path(outputDir) / (base + ".frag.metal")).string(), out.FragmentShader);
+            spdlog::info("{}.vert.metal / {}.frag.metal", base, base);
+        }
+        if (targets & (uint8_t)Target::SPIRV)
+        {
+            auto out = compiler.GenerateSPIRV(shader, i, defines);
+            WriteBinaryFile((std::filesystem::path(outputDir) / (base + ".vert.spv")).string(), out.SpirvVertex);
+            WriteBinaryFile((std::filesystem::path(outputDir) / (base + ".frag.spv")).string(), out.SpirvFragment);
+            spdlog::info("{}.vert.spv / {}.frag.spv", base, base);
+        }
     }
 
-    if (jsonOutput)
+    if (targets & (uint8_t)Target::JSON)
     {
         std::string base = shader.ShaderName;
         for (auto& c : base)

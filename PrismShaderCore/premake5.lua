@@ -15,7 +15,7 @@
     }
 
     libdirs { "..\\vendor\\lib" }
-    links { "glslang", "SPIRV", "OSDependent", "glslang-default-resource-limits", "spirv-cross-glsl", "spirv-cross-core" }
+    links { "glslang", "SPIRV", "OSDependent", "glslang-default-resource-limits", "spirv-cross-core", "spirv-cross-glsl", "spirv-cross-hlsl", "spirv-cross-msl" }
 
     defines { "PSC_BUILD" }
 
