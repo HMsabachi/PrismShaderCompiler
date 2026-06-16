@@ -14,7 +14,6 @@
         "..\\vendor\\SPIRV-Cross",
     }
 
-    libdirs { "..\\vendor\\lib" }
     links { "glslang", "SPIRV", "OSDependent", "glslang-default-resource-limits", "spirv-cross-core", "spirv-cross-glsl", "spirv-cross-hlsl", "spirv-cross-msl" }
 
     defines { "PSC_BUILD" }
@@ -26,13 +25,16 @@
     }
 
     filter "configurations:Debug"
-        runtime "Release"
+        runtime "Debug"
+        libdirs { "..\\vendor\\lib\\Debug" }
 
     filter "configurations:Release"
         runtime "Release"
+        libdirs { "..\\vendor\\lib\\Release" }
 
     filter "configurations:Dist"
         runtime "Release"
+        libdirs { "..\\vendor\\lib\\Release" }
 
     filter "system:windows"
         cppdialect "C++20"
