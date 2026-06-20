@@ -1,4 +1,5 @@
 ﻿#include "Metadata.h"
+#include "PSL/GLSLType.h"
 #include <json/json.hpp>
 
 namespace PrismShaderCompiler
@@ -91,13 +92,32 @@ namespace PrismShaderCompiler
             junis.push_back(SerializeUniform(u));
 
         auto& jpasses = j["passes"] = nlohmann::json::array();
-        for (auto& p : shader.Passes)
+        for (size_t i = 0; i < shader.Passes.size(); i++)
         {
+            auto& p = shader.Passes[i];
             nlohmann::json jp;
             jp["name"] = p.Name;
             jp["tags"] = p.Tags;
             auto jprs = SerializeRenderState(p.RenderState);
             if (!jprs.empty()) jp["renderState"] = std::move(jprs);
+
+            if (i < shader.PassGLSL.size())
+            {
+                auto& fragOutputs = shader.PassGLSL[i].FragmentOutputs;
+                if (!fragOutputs.empty())
+                {
+                    auto& jouts = jp["outputs"] = nlohmann::json::array();
+                    for (auto& fo : fragOutputs)
+                    {
+                        nlohmann::json jo;
+                        jo["name"]     = fo.Name;
+                        jo["location"] = fo.Location;
+                        jo["type"]     = GLSLTypeUtil::ToString(fo.Type);
+                        jouts.push_back(std::move(jo));
+                    }
+                }
+            }
+
             jpasses.push_back(std::move(jp));
         }
 

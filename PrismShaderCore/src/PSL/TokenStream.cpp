@@ -21,12 +21,14 @@ TokenType TokenStream::LookupKeyword(const char* str, uint32_t len)
         if (CmpN(str, "LOD"))  return TokenType::LODKw;
         break;
     case 4:
-        if (CmpN(str, "void")) return TokenType::VoidKw;
-        if (CmpN(str, "vec2")) return TokenType::Vec2Kw;
-        if (CmpN(str, "vec3")) return TokenType::Vec3Kw;
-        if (CmpN(str, "vec4")) return TokenType::Vec4Kw;
-        if (CmpN(str, "mat3")) return TokenType::Mat3Kw;
-        if (CmpN(str, "mat4")) return TokenType::Mat4Kw;
+        if (CmpN(str, "void")) return TokenType::VoidGLSLKw;
+        if (CmpN(str, "vec2")) return TokenType::Vec2GLSLKw;
+        if (CmpN(str, "vec3")) return TokenType::Vec3GLSLKw;
+        if (CmpN(str, "vec4")) return TokenType::Vec4GLSLKw;
+        if (CmpN(str, "mat2")) return TokenType::Mat2GLSLKw;
+        if (CmpN(str, "mat3")) return TokenType::Mat3GLSLKw;
+        if (CmpN(str, "mat4")) return TokenType::Mat4GLSLKw;
+        if (CmpN(str, "uint")) return TokenType::UIntGLSLKw;
         if (CmpN(str, "true")) return TokenType::TrueKw;
         if (CmpN(str, "main")) return TokenType::VertKw;
         if (CmpN(str, "vert")) return TokenType::VertKw;
@@ -54,6 +56,18 @@ TokenType TokenStream::LookupKeyword(const char* str, uint32_t len)
         if (CmpN(str, "false"))  return TokenType::FalseKw;
         if (CmpN(str, "float"))  return TokenType::FloatGLSLKw;
         if (CmpN(str, "inout"))  return TokenType::InOutKw;
+        if (CmpN(str, "bvec2"))  return TokenType::BVec2GLSLKw;
+        if (CmpN(str, "bvec3"))  return TokenType::BVec3GLSLKw;
+        if (CmpN(str, "bvec4"))  return TokenType::BVec4GLSLKw;
+        if (CmpN(str, "ivec2"))  return TokenType::IVec2GLSLKw;
+        if (CmpN(str, "ivec3"))  return TokenType::IVec3GLSLKw;
+        if (CmpN(str, "ivec4"))  return TokenType::IVec4GLSLKw;
+        if (CmpN(str, "uvec2"))  return TokenType::UVec2GLSLKw;
+        if (CmpN(str, "uvec3"))  return TokenType::UVec3GLSLKw;
+        if (CmpN(str, "uvec4"))  return TokenType::UVec4GLSLKw;
+        if (CmpN(str, "dvec2"))  return TokenType::DVec2GLSLKw;
+        if (CmpN(str, "dvec3"))  return TokenType::DVec3GLSLKw;
+        if (CmpN(str, "dvec4"))  return TokenType::DVec4GLSLKw;
         break;
     case 6:
         if (CmpN(str, "Shader"))   return TokenType::ShaderKw;
@@ -65,6 +79,16 @@ TokenType TokenStream::LookupKeyword(const char* str, uint32_t len)
         if (CmpN(str, "Offset"))   return TokenType::OffsetKw;
         if (CmpN(str, "pragma"))   return TokenType::PragmaKw;
         if (CmpN(str, "layout"))   return TokenType::LayoutKw;
+        if (CmpN(str, "double"))   return TokenType::DoubleGLSLKw;
+        if (CmpN(str, "mat2x2"))   return TokenType::Mat2x2GLSLKw;
+        if (CmpN(str, "mat2x3"))   return TokenType::Mat2x3GLSLKw;
+        if (CmpN(str, "mat2x4"))   return TokenType::Mat2x4GLSLKw;
+        if (CmpN(str, "mat3x2"))   return TokenType::Mat3x2GLSLKw;
+        if (CmpN(str, "mat3x3"))   return TokenType::Mat3x3GLSLKw;
+        if (CmpN(str, "mat3x4"))   return TokenType::Mat3x4GLSLKw;
+        if (CmpN(str, "mat4x2"))   return TokenType::Mat4x2GLSLKw;
+        if (CmpN(str, "mat4x3"))   return TokenType::Mat4x3GLSLKw;
+        if (CmpN(str, "mat4x4"))   return TokenType::Mat4x4GLSLKw;
         break;
     case 7:
         if (CmpN(str, "Vector2"))  return TokenType::Vector2Kw;
@@ -76,8 +100,11 @@ TokenType TokenStream::LookupKeyword(const char* str, uint32_t len)
         if (CmpN(str, "Greater"))  return TokenType::GreaterKw;
         if (CmpN(str, "VARYING"))  return TokenType::VaryingKw;
         if (CmpN(str, "include"))  return TokenType::IncludeKw;
+        if (CmpN(str, "image2D"))  return TokenType::Image2DGLSLKw;
+        if (CmpN(str, "image3D"))  return TokenType::Image3DGLSLKw;
         break;
     case 8:
+        if (CmpN(str, "location"))   return TokenType::LocationKw;
         if (CmpN(str, "SrcAlpha"))   return TokenType::SrcAlphaKw;
         if (CmpN(str, "NotEqual"))   return TokenType::NotEqualKw;
         break;
@@ -86,7 +113,9 @@ TokenType TokenStream::LookupKeyword(const char* str, uint32_t len)
         if (CmpN(str, "Texture2D"))  return TokenType::Texture2DKw;
         if (CmpN(str, "ColorMask"))  return TokenType::ColorMaskKw;
         if (CmpN(str, "attribute"))  return TokenType::AttributeKw;
-        if (CmpN(str, "sampler2D"))  return TokenType::Sampler2DKw;
+        if (CmpN(str, "sampler2D"))  return TokenType::Sampler2DGLSLKw;
+        if (CmpN(str, "sampler3D"))  return TokenType::Sampler3DGLSLKw;
+        if (CmpN(str, "imageCube"))  return TokenType::ImageCubeGLSLKw;
         break;
     case 10:
         if (CmpN(str, "Properties")) return TokenType::PropertiesKw;
@@ -94,19 +123,30 @@ TokenType TokenStream::LookupKeyword(const char* str, uint32_t len)
     case 11:
         if (CmpN(str, "Texture2DMS"))  return TokenType::Texture2DMSKw;
         if (CmpN(str, "TextureCube"))  return TokenType::TextureCubeKw;
-        if (CmpN(str, "samplerCube"))  return TokenType::SamplerCubeKw;
-        if (CmpN(str, "sampler2DMS"))  return TokenType::Sampler2DMSKw;
+        if (CmpN(str, "samplerCube"))  return TokenType::SamplerCubeGLSLKw;
+        if (CmpN(str, "sampler2DMS"))  return TokenType::Sampler2DMSGLSLKw;
+        if (CmpN(str, "atomic_uint"))  return TokenType::AtomicUIntGLSLKw;
         break;
     case 13:
         if (CmpN(str, "RenderCommand"))  return TokenType::RenderCommandKw;
         if (CmpN(str, "multi_compile"))  return TokenType::MultiCompileKw;
         break;
     case 14:
-        if (CmpN(str, "shader_feature")) return TokenType::ShaderFeatureKw;
+        if (CmpN(str, "shader_feature"))   return TokenType::ShaderFeatureKw;
+        if (CmpN(str, "sampler2DArray"))   return TokenType::Sampler2DArrayGLSLKw;
+        break;
+    case 15:
+        if (CmpN(str, "sampler2DShadow"))  return TokenType::Sampler2DShadowGLSLKw;
         break;
     case 16:
         if (CmpN(str, "OneMinusSrcAlpha")) return TokenType::OneMinusSrcAlphaKw;
         if (CmpN(str, "OneMinusDstAlpha")) return TokenType::OneMinusDstAlphaKw;
+        break;
+    case 17:
+        if (CmpN(str, "samplerCubeShadow")) return TokenType::SamplerCubeShadowGLSLKw;
+        break;
+    case 20:
+        if (CmpN(str, "sampler2DArrayShadow")) return TokenType::Sampler2DArrayShadowGLSLKw;
         break;
     }
     return TokenType::Identifier;

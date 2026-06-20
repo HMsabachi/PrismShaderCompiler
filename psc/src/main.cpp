@@ -103,9 +103,9 @@ int main(int argc, char* argv[])
         if (targets & (uint8_t)Target::GLSL)
         {
             auto out = compiler.GenerateGLSL(shader, i, defines);
-            WriteFile((std::filesystem::path(outputDir) / (base + ".vert")).string(), out.VertexShader);
-            WriteFile((std::filesystem::path(outputDir) / (base + ".frag")).string(), out.FragmentShader);
-            spdlog::info("{}.vert / {}.frag", base, base);
+            WriteFile((std::filesystem::path(outputDir) / (base + ".vert.glsl")).string(), out.VertexShader);
+            WriteFile((std::filesystem::path(outputDir) / (base + ".frag.glsl")).string(), out.FragmentShader);
+            spdlog::info("{}.vert.glsl / {}.frag.glsl", base, base);
         }
         if (targets & (uint8_t)Target::HLSL)
         {

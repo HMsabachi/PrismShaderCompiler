@@ -138,14 +138,28 @@ VARYING v2f {                  // 结构体
 } vs_Output;
 ```
 
+### 片元输出
+
+片元着色器的输出必须使用标准 GLSL `layout(location = N) out` 声明
+
+```psl
+layout(location = 0) out vec4 FragColor;
+```
+
+支持多渲染目标（MRT）——声明多个不同 location 的输出即可：
+
+```psl
+layout(location = 0) out vec4 g_Albedo;
+layout(location = 1) out vec4 g_Normal;
+layout(location = 2) out vec4 g_MetalRough;
+```
+
 ### 入口函数
 
 ```psl
 void vert() { ... }    // 顶点着色器
 void frag() { ... }    // 片元着色器
 ```
-
-片元着色器输出声明为：`FragColor = vec4(0.0f);`
 
 ### #include
 
@@ -180,6 +194,8 @@ GLSL
 {
     attribute vec3 a_Position : POSITION;
     attribute vec2 a_TexCoord : TEXCOORD0;
+
+    layout(location = 0) out vec4 FragColor;
 
     VARYING vec2 v_TexCoord;
 
@@ -361,6 +377,8 @@ Shader "Custom/PBR"
                 attribute vec3 a_Position : POSITION;
                 attribute vec2 a_TexCoord : TEXCOORD0;
                 attribute vec3 a_Normal   : NORMAL;
+
+                layout(location = 0) out vec4 FragColor;
 
                 VARYING vec2 v_TexCoord;
                 VARYING vec3 v_WorldPos;

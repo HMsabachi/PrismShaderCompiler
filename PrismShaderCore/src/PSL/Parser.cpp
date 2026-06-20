@@ -1,4 +1,5 @@
 ﻿#include "PSL/Parser.h"
+#include "PSL/GLSLType.h"
 #include "Log.h"
 
 namespace PrismShaderCompiler
@@ -121,19 +122,9 @@ void Parser::Error(const std::string& msg)
     log.Error("    --> '{}'", code);
 }
 
-bool Parser::IsTypeToken(TokenType t)
-{
-    return t == TokenType::Identifier
-        || t == TokenType::Vec2Kw || t == TokenType::Vec3Kw || t == TokenType::Vec4Kw
-        || t == TokenType::Mat3Kw || t == TokenType::Mat4Kw
-        || t == TokenType::FloatGLSLKw || t == TokenType::IntGLSLKw || t == TokenType::BoolGLSLKw
-        || t == TokenType::Sampler2DKw || t == TokenType::SamplerCubeKw || t == TokenType::Sampler2DMSKw
-        || t == TokenType::VoidKw;
-}
-
 Token Parser::ConsumeType(const std::string& errMsg)
 {
-    if (IsTypeToken(Current().Type)) return Advance();
+    if (GLSLTypeUtil::IsTypeToken(Current().Type)) return Advance();
     Error(errMsg);
     return Current();
 }
@@ -511,11 +502,15 @@ void Parser::ParseGLSLBlock(AST::GLSLCode& glsl)
             sharedStart = Current().Offset;
 
         }
-        else if (Check(TokenType::VoidKw))
+        else if (Check(TokenType::VoidGLSLKw))
         {
             FlushSharedChunk(glsl.SharedSource, sharedStart);
             ParserGLSLVoid(glsl);
             sharedStart = Current().Offset;
+        }
+        else if (Check(TokenType::LayoutKw))
+        {
+            ParseGLSLLayout(glsl, nextID++, sharedStart);
         }
         else if (Check(TokenType::LeftBrace))
         {
@@ -584,7 +579,7 @@ void Parser::ParseGLSLAttribute(AST::GLSLCode& glsl, uint32_t id)
     AST::VertexAttribute attr;
     attr.InsertID = id;
     attr.Loc = CurrentLoc();
-    attr.Type = TokenStr(ConsumeType("期望 attribute 类型"));
+    attr.Type = GLSLTypeUtil::FromTokenType(ConsumeType("期望 attribute 类型").Type);
     attr.Name = TokenStr(Consume(TokenType::Identifier, "期望 attribute 名称"));
     Consume(TokenType::Colon, "期望 ':'");
     attr.Semantic = PrismShaderCompiler::ParseVertexSemantic(TokenStr(Consume(TokenType::Identifier, "期望语义名称")));
@@ -600,7 +595,8 @@ void Parser::ParseGLSLVarying(AST::GLSLCode& glsl, uint32_t id)
     AST::VaryingBlock block;
     block.InsertID = id;
     block.Loc = CurrentLoc();
-    std::string first = TokenStr(ConsumeType("期望类型或结构体名"));
+    Token firstToken = ConsumeType("期望类型或结构体名");
+    std::string first = TokenStr(firstToken);
 
     if (Check(TokenType::LeftBrace))
     {
@@ -610,7 +606,7 @@ void Parser::ParseGLSLVarying(AST::GLSLCode& glsl, uint32_t id)
 
         while (!Check(TokenType::RightBrace) && !IsAtEnd())
         {
-            if (!IsTypeToken(Current().Type))
+            if (!GLSLTypeUtil::IsTypeToken(Current().Type))
             {
                 Error("VARYING 成员格式错误，期望类型名");
                 SkipTo(TokenType::RightBrace);
@@ -618,7 +614,7 @@ void Parser::ParseGLSLVarying(AST::GLSLCode& glsl, uint32_t id)
                 Advance();
                 continue;
             }
-            std::string memberType = TokenStr(ConsumeType("期望成员类型"));
+            GLSLType memberType = GLSLTypeUtil::FromTokenType(ConsumeType("期望成员类型").Type);
             std::string memberName = TokenStr(Advance());
             Consume(TokenType::Semicolon, "期望 ';'");
             block.Members.push_back({ memberType, memberName });
@@ -631,12 +627,50 @@ void Parser::ParseGLSLVarying(AST::GLSLCode& glsl, uint32_t id)
     else
     {
         block.IsStruct = false;
-        block.Type = first;
+        block.Type = GLSLTypeUtil::FromTokenType(firstToken.Type);
         block.InstanceName = TokenStr(Consume(TokenType::Identifier, "期望变量名"));
         Consume(TokenType::Semicolon, "期望 ';'");
     }
 
     glsl.Varyings.push_back(block);
+}
+
+void Parser::ParseGLSLLayout(AST::GLSLCode& glsl, uint32_t id, uint32_t& start)
+{
+    if (PeekToken(1).Is(TokenType::LeftParen) &&
+        PeekToken(2).Is(TokenType::LocationKw) &&
+        PeekToken(3).Is(TokenType::Equals) &&
+        PeekToken(4).Is(TokenType::IntegerLiteral) &&
+        PeekToken(5).Is(TokenType::RightParen) &&
+        PeekToken(6).Is(TokenType::OutKw))
+    {
+        FlushSharedChunk(glsl.SharedSource, start);
+        Advance();
+        glsl.SharedSource += "[Prism::Insert:" + std::to_string(id) + "]";
+
+        AST::FragmentOutput fragOut;
+        fragOut.InsertID = id;
+        fragOut.Loc = CurrentLoc();
+
+        Consume(TokenType::LeftParen, "期望 '('");
+        Consume(TokenType::LocationKw, "期望 'location'");
+        Consume(TokenType::Equals, "期望 '='");
+        fragOut.Location = TokenInt(Consume(TokenType::IntegerLiteral, "期望整数"));
+        Consume(TokenType::RightParen, "期望 ')'");
+        Consume(TokenType::OutKw, "期望 'out'");
+
+        Token typeToken = ConsumeType("期望输出类型");
+        fragOut.Type = GLSLTypeUtil::FromTokenType(typeToken.Type);
+        fragOut.Name = TokenStr(Consume(TokenType::Identifier, "期望变量名"));
+        Consume(TokenType::Semicolon, "期望 ';'");
+
+        glsl.FragmentOutputs.push_back(fragOut);
+        start = Current().Offset;
+    }
+    else
+    {
+        Advance();
+    }
 }
 
 void Parser::ParseGLSLDirective(AST::GLSLCode& glsl, uint32_t id)
@@ -693,5 +727,4 @@ void Parser::SkipTo(TokenType type)
     while (!IsAtEnd() && !Check(type))
         Advance();
 }
-
 } // namespace PrismShaderCompiler

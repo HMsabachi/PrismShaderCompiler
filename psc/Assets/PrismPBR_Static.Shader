@@ -1,5 +1,5 @@
 // Prism Shader Language v1.0
-Shader "Custom/SimplePBR_Animated"
+Shader "Custom/SimplePBR_Static"
 {
     // ==================== Properties（材质参数） ====================
     Properties
@@ -50,21 +50,14 @@ Shader "Custom/SimplePBR_Animated"
             Name "ForwardBase"
             GLSL
             {
-                #pragma shader_feature ALBEDO_MAP
-                #pragma shader_feature NORMAL_MAP
-                #pragma shader_feature METALNESS_MAP
-                #pragma shader_feature ROUGHNESS_MAP
-                #include "PrismBuiltin.glsl"
+                #pragma shader_feature ALBEDO_MAP NORMAL_MAP METALNESS_MAP ROUGHNESS_MAP
+                #include "PrismCommon.glsl"
                 #include "PrismPBR.glsl"
                 attribute vec3 a_Position : POSITION;
                 attribute vec3 a_Normal : NORMAL;
                 attribute vec3 a_Tangent : TANGENT;
                 attribute vec3 a_Binormal : BINORMAL;
                 attribute vec2 a_TexCoord : TEXCOORD0;
-                attribute ivec4 a_BoneIndices : BONEINDICES;
-                attribute vec4 a_BoneWeights : BONEWEIGHTS;
-
-                layout(location = 0) out vec4 FragColor;
 
 
                 VARYING VertexOutput
@@ -81,24 +74,14 @@ Shader "Custom/SimplePBR_Animated"
                 {
                     mat4 u_ViewProjectionMatrix = Prism_ViewProjection;
                     mat4 u_ModelMatrix = Prism_Model;
-                    mat4 boneTransform = Prism_Bones[a_BoneIndices[0]] * a_BoneWeights[0];
-                    boneTransform += Prism_Bones[a_BoneIndices[1]] * a_BoneWeights[1];
-                    boneTransform += Prism_Bones[a_BoneIndices[2]] * a_BoneWeights[2];
-                    boneTransform += Prism_Bones[a_BoneIndices[3]] * a_BoneWeights[3];
-
-                    vec4 localPosition = boneTransform * vec4(a_Position, 1.0);
-
-                    vs_Output.WorldPosition = vec3(u_ModelMatrix * boneTransform * vec4(a_Position, 1.0));
-                    vs_Output.Normal = mat3(u_ModelMatrix) * mat3(boneTransform) * a_Normal;
-
-
+                    vs_Output.WorldPosition = vec3(u_ModelMatrix * vec4(a_Position, 1.0));
+                    vs_Output.Normal = mat3(u_ModelMatrix) * a_Normal;;
                     vs_Output.TexCoord = vec2(a_TexCoord.x, 1.0 - a_TexCoord.y);
                     vs_Output.WorldNormals = mat3(u_ModelMatrix) * mat3(a_Tangent, a_Binormal, a_Normal);
-                    vs_Output.Binormal = mat3(boneTransform) * a_Binormal;
                     vs_Output.WorldTransform = mat3(u_ModelMatrix);
+                    vs_Output.Binormal = a_Binormal;
 
-                    //gl_Position = u_ViewProjectionMatrix * u_ModelMatrix * vec4(a_Position, 1.0);
-                    gl_Position = u_ViewProjectionMatrix * u_ModelMatrix * localPosition;
+                    gl_Position = u_ViewProjectionMatrix * u_ModelMatrix * vec4(a_Position, 1.0);
                 }
 
                 // Constant normal incidence Fresnel factor for all dielectrics.
@@ -175,13 +158,8 @@ Shader "Custom/SimplePBR_Animated"
                     int u_EnvRadianceTexLevels = textureQueryLevels(u_EnvRadianceTex);
                     float NoV = clamp(m_Params.NdotV, 0.0, 1.0);
                     vec3 R = 2.0 * dot(m_Params.View, m_Params.Normal) * m_Params.Normal - m_Params.View;
-                    vec3 specularIrradiance = vec3(0.0);
 
-                    if (u_RadiancePrefilter > 0.5)
-                        specularIrradiance = PrefilterEnvMap(m_Params.Roughness * m_Params.Roughness, R) * u_RadiancePrefilter;
-                    else
-                        specularIrradiance = textureLod(u_EnvRadianceTex, RotateVectorAboutY(u_EnvMapRotation, Lr), sqrt(m_Params.Roughness) * u_EnvRadianceTexLevels).rgb * (1.0 - u_RadiancePrefilter);
-
+                    vec3 specularIrradiance = textureLod(u_EnvRadianceTex, RotateVectorAboutY(u_EnvMapRotation, Lr), (m_Params.Roughness * m_Params.Roughness) * u_EnvRadianceTexLevels).rgb;
                     // Sample BRDF Lut, 1.0 - roughness for y-coord because texture was generated (in Sparky) for gloss model
                     vec2 specularBRDF = texture(u_BRDFLUTTexture, vec2(m_Params.NdotV, 1.0 - m_Params.Roughness)).rg;
                     vec3 specularIBL = specularIrradiance * (F * specularBRDF.x + specularBRDF.y);

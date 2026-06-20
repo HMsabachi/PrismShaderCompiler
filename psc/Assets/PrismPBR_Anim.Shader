@@ -54,7 +54,7 @@ Shader "Custom/SimplePBR_Animated"
                 #pragma shader_feature NORMAL_MAP
                 #pragma shader_feature METALNESS_MAP
                 #pragma shader_feature ROUGHNESS_MAP
-                #include "PrismBuiltin.glsl"
+                #include "PrismCommon.glsl"
                 #include "PrismPBR.glsl"
                 attribute vec3 a_Position : POSITION;
                 attribute vec3 a_Normal : NORMAL;
@@ -63,8 +63,6 @@ Shader "Custom/SimplePBR_Animated"
                 attribute vec2 a_TexCoord : TEXCOORD0;
                 attribute ivec4 a_BoneIndices : BONEINDICES;
                 attribute vec4 a_BoneWeights : BONEWEIGHTS;
-
-                layout(location = 0) out vec4 FragColor;
 
 
                 VARYING VertexOutput

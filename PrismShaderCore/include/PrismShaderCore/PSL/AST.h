@@ -6,6 +6,7 @@
 #include "Scalar.h"
 #include "../Property/PropertyLayout.h"
 #include "../Property/VertexType.h"
+#include "GLSLType.h"
 
 #include <string>
 #include <vector>
@@ -18,7 +19,7 @@ namespace PrismShaderCompiler::AST
 
 struct VertexAttribute
 {
-    std::string Type;
+    GLSLType Type = GLSLType::None;
     std::string Name;
     PrismShaderCompiler::VertexSemantic Semantic;
     uint32_t InsertID = 0;
@@ -27,7 +28,7 @@ struct VertexAttribute
 
 struct VaryingMember
 {
-    std::string Type;
+    GLSLType Type = GLSLType::None;
     std::string Name;
 };
 
@@ -37,7 +38,7 @@ struct VaryingBlock
     std::string StructName;
     std::string InstanceName;
     std::vector<VaryingMember> Members;
-    std::string Type;
+    GLSLType Type = GLSLType::None;
     uint32_t InsertID = 0;
     SourceLocation Loc;
 };
@@ -64,6 +65,15 @@ struct IncludeDef
     SourceLocation Loc;
 };
 
+struct FragmentOutput
+{
+    GLSLType Type = GLSLType::None;
+    std::string Name;
+    int Location = 0;
+    uint32_t InsertID = 0;
+    SourceLocation Loc;
+};
+
 struct GLSLCode
 {
     std::string SharedSource;
@@ -75,6 +85,7 @@ struct GLSLCode
     std::vector<VaryingBlock> Varyings;
     std::vector<PragmaDef> Pragmas;
     std::vector<IncludeDef> Includes;
+    std::vector<FragmentOutput> FragmentOutputs;
 };
 
 struct ShaderUniform

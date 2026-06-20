@@ -33,7 +33,6 @@ private:
     SourceLocation CurrentLoc();
     void Error(const std::string& msg);
 
-    static bool IsTypeToken(TokenType t);
     Token ConsumeType(const std::string& errMsg);
 
     // Token 文本取值（通过 SourceManager）
@@ -54,14 +53,13 @@ private:
     // GLSL 块
     void ParseGLSLBlock(AST::GLSLCode& glsl);
 
-    void BuildMaterialLayout(AST::ShaderDocument& doc);
-
 private:
     void ParserGLSLVoid(AST::GLSLCode& glsl);
 
     void ParseGLSLAttribute(AST::GLSLCode& glsl, uint32_t id);
     void ParseGLSLVarying(AST::GLSLCode& glsl, uint32_t id);
     void ParseGLSLDirective(AST::GLSLCode& glsl, uint32_t id);
+    void ParseGLSLLayout(AST::GLSLCode& glsl, uint32_t id, uint32_t& start);
     void FlushSharedChunk(std::string& out, uint32_t& start);
     void AppendTokenText(std::string& out, const Token& t);
     void SkipTo(TokenType type);

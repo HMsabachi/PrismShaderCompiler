@@ -1,11 +1,13 @@
 ﻿#include "Generator/IRGenerator.h"
 #include "Compiler.h"
 #include "PSL/IncludeExpander.h"
+#include "PSL/GLSLType.h"
 #include "Property/PropertyLayout.h"
 
 #include <algorithm>
 #include <fstream>
 #include <filesystem>
+#include <iostream>
 
 namespace PrismShaderCompiler::IRGen
 {
@@ -28,7 +30,7 @@ namespace PrismShaderCompiler::IRGen
 
     static void GenerateAttribute(std::string& source, const AST::VertexAttribute& attr)
     {
-        std::string line = "layout(location = " + std::to_string(PrismShaderCompiler::SemanticToLocation(attr.Semantic)) + ") in " + attr.Type + " " + attr.Name + ";\n";
+        std::string line = "layout(location = " + std::to_string(PrismShaderCompiler::SemanticToLocation(attr.Semantic)) + ") in " + std::string(GLSLTypeUtil::ToString(attr.Type)) + " " + attr.Name + ";\n";
         line += "#line " + std::to_string(attr.Loc.Line) + " \"" + std::string(attr.Loc.FilePath) + "\"\n";
         replaceInsert(source, line, attr.InsertID);
     }
@@ -73,12 +75,12 @@ namespace PrismShaderCompiler::IRGen
         {
             line += prefix + varying.StructName + "\n{\n";
             for (const auto& member : varying.Members)
-                line += "    " + member.Type + " " + member.Name + ";\n";
+                line += "    " + std::string(GLSLTypeUtil::ToString(member.Type)) + " " + member.Name + ";\n";
             line += "}" + varying.InstanceName + ";\n";
         }
         else
         {
-            line += prefix + varying.Type + " " + varying.InstanceName + ";\n";
+            line += prefix + std::string(GLSLTypeUtil::ToString(varying.Type)) + " " + varying.InstanceName + ";\n";
         }
         line += "#line " + std::to_string(varying.Loc.Line) + " \"" + std::string(varying.Loc.FilePath) + "\"\n";
         replaceInsert(source, line, varying.InsertID);
@@ -92,8 +94,13 @@ namespace PrismShaderCompiler::IRGen
         for (const auto& attr : glsl.Attributes)
             GenerateAttribute(source, attr);
         for (uint32_t vloc = 0; vloc < glsl.Varyings.size(); vloc++)
-			GenerateVarying(source, glsl.Varyings[vloc], true, vloc);
+            GenerateVarying(source, glsl.Varyings[vloc], true, vloc);
         std::string line = "#line " + std::to_string(glsl.Vertex.Loc.Line - 1) + " \"" + std::string(glsl.Vertex.Loc.FilePath) + "\"\n";
+        for (const auto& fragOut : glsl.FragmentOutputs)
+        {
+            std::string foLine = "#line " + std::to_string(fragOut.Loc.Line) + " \"" + std::string(fragOut.Loc.FilePath) + "\"\n";
+            replaceInsert(source, foLine, fragOut.InsertID);
+        }
         line += "void main()\n";
         line += glsl.Vertex.Source + "\n";
         source += line;
@@ -103,15 +110,22 @@ namespace PrismShaderCompiler::IRGen
     {
         std::string head = "// " + std::string(glsl.Loc.FilePath) +"\n";
         head += "#version " + std::to_string(s_Config.GlslVersion) + " core\n";
-        head += "layout(location = 0) out vec4 FragColor;\n";
+        for (const auto& fragOut : glsl.FragmentOutputs)
+            head += "layout(location = " + std::to_string(fragOut.Location) + ") out "
+                  + std::string(GLSLTypeUtil::ToString(fragOut.Type)) + " " + fragOut.Name + ";\n";
         source = head + source;
         for (const auto& attr : glsl.Attributes)
         {
             std::string line = "#line " + std::to_string(attr.Loc.Line) + " \"" + std::string(attr.Loc.FilePath) + "\"\n";
             replaceInsert(source, line, attr.InsertID);
         }
-		for (uint32_t vloc = 0; vloc < glsl.Varyings.size(); vloc++)
-			GenerateVarying(source, glsl.Varyings[vloc], false, vloc);
+        for (const auto& fragOut : glsl.FragmentOutputs)
+        {
+            std::string line = "#line " + std::to_string(fragOut.Loc.Line) + " \"" + std::string(fragOut.Loc.FilePath) + "\"\n";
+            replaceInsert(source, line, fragOut.InsertID);
+        }
+        for (uint32_t vloc = 0; vloc < glsl.Varyings.size(); vloc++)
+            GenerateVarying(source, glsl.Varyings[vloc], false, vloc);
         std::string line = "#line " + std::to_string(glsl.Fragment.Loc.Line - 1) + " \"" + std::string(glsl.Fragment.Loc.FilePath) + "\"\n";
         line += "void main()\n";
         line += glsl.Fragment.Source + "\n";
