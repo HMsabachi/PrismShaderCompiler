@@ -99,6 +99,7 @@ TokenType TokenStream::LookupKeyword(const char* str, uint32_t len)
         if (CmpN(str, "uniform"))  return TokenType::UniformKw;
         if (CmpN(str, "Greater"))  return TokenType::GreaterKw;
         if (CmpN(str, "VARYING"))  return TokenType::VaryingKw;
+        if (CmpN(str, "varying"))  return TokenType::VaryingKw;
         if (CmpN(str, "include"))  return TokenType::IncludeKw;
         if (CmpN(str, "image2D"))  return TokenType::Image2DGLSLKw;
         if (CmpN(str, "image3D"))  return TokenType::Image3DGLSLKw;

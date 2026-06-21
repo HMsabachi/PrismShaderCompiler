@@ -1,4 +1,4 @@
-#include "Generator/MSLGenerator.h"
+﻿#include "Generator/MSLGenerator.h"
 #include <spirv_msl.hpp>
 
 namespace PrismShaderCompiler

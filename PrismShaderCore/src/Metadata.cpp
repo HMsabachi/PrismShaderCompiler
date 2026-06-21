@@ -1,7 +1,6 @@
 ﻿#include "Metadata.h"
 #include "PSL/GLSLType.h"
 #include "Property/VertexType.h"
-#include "Generator/IRGenerator.h"
 #include <json/json.hpp>
 
 namespace PrismShaderCompiler
@@ -118,36 +117,30 @@ namespace PrismShaderCompiler
                     jattrs.push_back(std::move(ja));
                 }
 
-                auto& jvaryings = jp["varyings"] = nlohmann::json::array();
-                uint32_t vLoc = 0;
-                for (auto& v : glsl.Varyings)
+                if (glsl.Varying)
                 {
-                    nlohmann::json jv;
-                    jv["location"] = vLoc;
-                    jv["slots"]    = IRGen::VaryingLocationSlots(v);
-                    vLoc += (uint32_t)jv["slots"];
-                    if (v.IsStruct)
+                    auto& v = *glsl.Varying;
+                    auto& jv = jp["varying"];
+                    jv["struct"] = v.StructName;
+                    jv["instance"] = v.InstanceName;
+                    auto& jmembers = jv["members"] = nlohmann::json::array();
+                    uint32_t loc = 0;
+                    for (auto& m : v.Members)
                     {
-                        jv["struct"] = v.StructName;
-                        jv["instance"] = v.InstanceName;
-                        if (v.ArraySize > 1) jv["arraySize"] = v.ArraySize;
-                        auto& jmembers = jv["members"] = nlohmann::json::array();
-                        for (auto& m : v.Members)
-                        {
-                            nlohmann::json jm;
-                            jm["name"] = m.Name;
-                            jm["type"] = GLSLTypeUtil::ToString(m.Type);
-                            if (m.ArraySize > 1) jm["arraySize"] = m.ArraySize;
-                            jmembers.push_back(std::move(jm));
-                        }
+                        bool isMat = GLSLTypeUtil::IsMatrixType(m.Type);
+                        uint32_t cols = isMat ? GLSLTypeUtil::LocationSlots(m.Type) : 1;
+                        uint32_t slots = cols * m.ArraySize;
+
+                        nlohmann::json jm;
+                        jm["name"] = m.Name;
+                        jm["type"] = GLSLTypeUtil::ToString(m.Type);
+                        if (m.ArraySize > 1) jm["arraySize"] = m.ArraySize;
+                        jm["location"] = loc;
+                        jm["slots"] = slots;
+                        if (isMat) jm["columnType"] = GLSLTypeUtil::ToString(GLSLTypeUtil::ColumnType(m.Type));
+                        loc += slots;
+                        jmembers.push_back(std::move(jm));
                     }
-                    else
-                    {
-                        jv["name"] = v.InstanceName;
-                        jv["type"] = GLSLTypeUtil::ToString(v.Type);
-                        if (v.ArraySize > 1) jv["arraySize"] = v.ArraySize;
-                    }
-                    jvaryings.push_back(std::move(jv));
                 }
 
                 auto& fragOutputs = glsl.FragmentOutputs;

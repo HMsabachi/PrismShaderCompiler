@@ -127,28 +127,30 @@ attribute 类型 变量名 : 语义;
 
 ### Varying 变量
 
-顶点着色器输出到片元着色器的数据：
+顶点着色器输出到片元着色器的数据。**必须写成单一结构体**（一个 Pass 只允许一个），大小写均可：
 
 ```psl
-VARYING vec3 v_WorldPos;       // 简单类型
-VARYING v2f {                  // 结构体
-    vec3 WorldPos;
-    vec2 TexCoord;
+varying VertexOutput
+{
+    vec3 WorldPosition;
     vec3 Normal;
-} vs_Output;
+    vec2 TexCoord;
+    mat3 WorldNormals;
+} v2f;
 ```
 
-支持数组语法：
+成员支持数组：
 
 ```psl
-VARYING vec4 v_Weights[4];          // 简单数组
-VARYING v2f {
-    vec4 BoneWeights[4];
-    mat3 WorldNormals;
-} vs_Output[3];                     // 结构体数组
+varying VertexOutput
+{
+    vec3  WorldPosition;
+    mat3  WorldNormals;
+    vec4  ShadowMapCoords[4];   // 数组成员
+} v2f;
 ```
 
-> **MSL 限制**：Metal 不支持 varying 中传递矩阵数组。若启用 `-m` 生成 MSL 且着色器使用了 `mat` 数组（含结构体数组内嵌矩阵），将报错跳过该目标。GLSL / HLSL 无此限制。
+> **提示**：每个 varying 成员会占用若干个 location 槽位（向量 1 个，`mat3` 3 个，`mat4` 4 个，数组 ×元素数）。过多数组或矩阵会迅速耗尽硬件 varying 上限（通常 ~30 个 location）。大型数据（如骨骼矩阵数组 `mat4[128]`）请使用 UBO / SSBO 传递，不要走 varying。
 
 ### 片元输出
 
@@ -392,9 +394,12 @@ Shader "Custom/PBR"
 
                 layout(location = 0) out vec4 FragColor;
 
-                VARYING vec2 v_TexCoord;
-                VARYING vec3 v_WorldPos;
-                VARYING vec3 v_Normal;
+                varying VertexOutput
+                {
+                    vec3 WorldPos;
+                    vec2 TexCoord;
+                    vec3 Normal;
+                } v2f;
 
                 #pragma shader_feature ALBEDO_MAP NORMAL_MAP
 
@@ -402,15 +407,15 @@ Shader "Custom/PBR"
                 {
                     vec4 worldPos = Prism_Model * vec4(a_Position, 1.0);
                     gl_Position = Prism_ViewProjection * worldPos;
-                    v_WorldPos = worldPos.xyz;
-                    v_TexCoord = a_TexCoord;
-                    v_Normal = mat3(Prism_Model) * a_Normal;
+                    v2f.WorldPos = worldPos.xyz;
+                    v2f.TexCoord = a_TexCoord;
+                    v2f.Normal = mat3(Prism_Model) * a_Normal;
                 }
 
                 void frag()
                 {
                 #ifdef ALBEDO_MAP
-                    vec3 albedo = texture(u_AlbedoMap, v_TexCoord).rgb * u_Color.rgb;
+                    vec3 albedo = texture(u_AlbedoMap, v2f.TexCoord).rgb * u_Color.rgb;
                 #else
                     vec3 albedo = u_Color.rgb;
                 #endif

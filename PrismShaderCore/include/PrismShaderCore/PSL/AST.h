@@ -35,12 +35,9 @@ struct VaryingMember
 
 struct VaryingBlock
 {
-    bool IsStruct = false;
     std::string StructName;
     std::string InstanceName;
     std::vector<VaryingMember> Members;
-    GLSLType Type = GLSLType::None;
-    uint32_t ArraySize = 1;
     uint32_t InsertID = 0;
     SourceLocation Loc;
 };
@@ -57,7 +54,8 @@ struct PragmaDef
 struct EntryPointSource
 {
     std::string Source;
-    SourceLocation Loc;
+    SourceLocation LocBegin;
+    SourceLocation LocEnd;
 };
 
 struct IncludeDef
@@ -84,7 +82,7 @@ struct GLSLCode
     SourceLocation Loc;
 
     std::vector<VertexAttribute> Attributes;
-    std::vector<VaryingBlock> Varyings;
+    std::optional<VaryingBlock> Varying;
     std::vector<PragmaDef> Pragmas;
     std::vector<IncludeDef> Includes;
     std::vector<FragmentOutput> FragmentOutputs;

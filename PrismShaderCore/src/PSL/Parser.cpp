@@ -542,30 +542,31 @@ void Parser::ParserGLSLVoid(AST::GLSLCode& glsl)
         Advance(); // void
         return;
     }
-
     bool isVert = next.Is(TokenType::VertKw);
-    (isVert ? glsl.Vertex : glsl.Fragment).Loc = CurrentLoc();
-
     Advance(); // void
     Advance(); // vert / frag
     Consume(TokenType::LeftParen, "期望 '('");
     Consume(TokenType::RightParen, "期望 ')'");
     Token openBrace = Consume(TokenType::LeftBrace, "期望 '{'");
-
     int funcDepth = 1;
     while (!IsAtEnd() && funcDepth > 0)
     {
         Token ft = Advance();
         if (ft.Is(TokenType::LeftBrace))
+        {
             funcDepth++;
+            (isVert ? glsl.Vertex : glsl.Fragment).LocBegin = CurrentLoc();
+        }
         else if (ft.Is(TokenType::RightBrace))
         {
             funcDepth--;
+            (isVert ? glsl.Vertex : glsl.Fragment).LocEnd = m_Stream.GetSM().GetLocation(PeekToken(-1).Offset);
             if (funcDepth == 0)
             {
                 std::string& target = isVert ? glsl.Vertex.Source : glsl.Fragment.Source;
-                uint32_t len = ft.Offset - openBrace.Offset + ft.Length;
-                target = std::string(m_Stream.GetSM().GetView(openBrace.Offset, len));
+                uint32_t bodyStart = openBrace.Offset + openBrace.Length;
+                uint32_t bodyLen = ft.Offset - bodyStart;
+                target = std::string(m_Stream.GetSM().GetView(bodyStart, bodyLen));
                 break;
             }
         }
@@ -589,69 +590,46 @@ void Parser::ParseGLSLAttribute(AST::GLSLCode& glsl, uint32_t id)
 
 void Parser::ParseGLSLVarying(AST::GLSLCode& glsl, uint32_t id)
 {
+    if (glsl.Varying)
+    {
+        Error("一个 Pass 只允许一个 varying 结构体");
+        Advance(); // varying
+        SkipTo(TokenType::Semicolon);
+        if (Check(TokenType::Semicolon)) Advance();
+        return;
+    }
     glsl.SharedSource += "[Prism::Insert:" + std::to_string(id) + "]";
-    Advance();
-
+    Advance(); // varying 
     AST::VaryingBlock block;
     block.InsertID = id;
     block.Loc = CurrentLoc();
-    Token firstToken = ConsumeType("期望类型或结构体名");
-    std::string first = TokenStr(firstToken);
-
-    if (Check(TokenType::LeftBrace))
+    block.StructName = TokenStr(Consume(TokenType::Identifier, "期望结构体名"));
+    Consume(TokenType::LeftBrace, "期望 '{'");
+    while (!Check(TokenType::RightBrace) && !IsAtEnd())
     {
-        block.IsStruct = true;
-        block.StructName = first;
-        Consume(TokenType::LeftBrace, "期望 '{'");
-
-        while (!Check(TokenType::RightBrace) && !IsAtEnd())
+        if (!GLSLTypeUtil::IsTypeToken(Current().Type))
         {
-            if (!GLSLTypeUtil::IsTypeToken(Current().Type))
-            {
-                Error("VARYING 成员格式错误，期望类型名");
-                SkipTo(TokenType::RightBrace);
-                if (Check(TokenType::RightBrace)) break;
-                Advance();
-                continue;
-            }
-            GLSLType memberType = GLSLTypeUtil::FromTokenType(ConsumeType("期望成员类型").Type);
-            std::string memberName = TokenStr(Advance());
-            uint32_t memberArraySize = 1;
-            if (Check(TokenType::LeftBracket))
-            {
-                Advance();
-                memberArraySize = (uint32_t)TokenInt(Consume(TokenType::IntegerLiteral, "期望数组大小"));
-                Consume(TokenType::RightBracket, "期望 ']'");
-            }
-            Consume(TokenType::Semicolon, "期望 ';'");
-            block.Members.push_back({ memberType, memberName, memberArraySize });
+            Error("varying 成员格式错误，期望类型名");
+            SkipTo(TokenType::Semicolon);
+            if (Check(TokenType::Semicolon)) Advance();
+            continue;
         }
-        Consume(TokenType::RightBrace, "期望 '}'");
-
-        block.InstanceName = TokenStr(Advance());
+        GLSLType memberType = GLSLTypeUtil::FromTokenType(ConsumeType("期望成员类型").Type);
+        std::string memberName = TokenStr(Advance());
+        uint32_t memberArraySize = 1;
         if (Check(TokenType::LeftBracket))
         {
             Advance();
-            block.ArraySize = (uint32_t)TokenInt(Consume(TokenType::IntegerLiteral, "期望数组大小"));
+            memberArraySize = (uint32_t)TokenInt(Consume(TokenType::IntegerLiteral, "期望数组大小"));
             Consume(TokenType::RightBracket, "期望 ']'");
         }
         Consume(TokenType::Semicolon, "期望 ';'");
+        block.Members.push_back({ memberType, memberName, memberArraySize });
     }
-    else
-    {
-        block.IsStruct = false;
-        block.Type = GLSLTypeUtil::FromTokenType(firstToken.Type);
-        block.InstanceName = TokenStr(Consume(TokenType::Identifier, "期望变量名"));
-        if (Check(TokenType::LeftBracket))
-        {
-            Advance();
-            block.ArraySize = (uint32_t)TokenInt(Consume(TokenType::IntegerLiteral, "期望数组大小"));
-            Consume(TokenType::RightBracket, "期望 ']'");
-        }
-        Consume(TokenType::Semicolon, "期望 ';'");
-    }
-
-    glsl.Varyings.push_back(block);
+    Consume(TokenType::RightBrace, "期望 '}'");
+    block.InstanceName = TokenStr(Consume(TokenType::Identifier, "期望实例名"));
+    Consume(TokenType::Semicolon, "期望 ';'");
+    glsl.Varying = block;
 }
 
 void Parser::ParseGLSLLayout(AST::GLSLCode& glsl, uint32_t id, uint32_t& start)

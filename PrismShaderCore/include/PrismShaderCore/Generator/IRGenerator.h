@@ -24,8 +24,6 @@ namespace IRGen
         const std::string& filePath,
         const std::vector<std::string>& activeKeywords = {}
     );
-
-    uint32_t PSC_API VaryingLocationSlots(const AST::VaryingBlock& varying);
 }
 
 } // namespace PrismShaderCompiler

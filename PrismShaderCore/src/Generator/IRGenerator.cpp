@@ -8,6 +8,7 @@
 #include <fstream>
 #include <filesystem>
 #include <iostream>
+#include <optional>
 
 namespace PrismShaderCompiler::IRGen
 {
@@ -64,72 +65,114 @@ namespace PrismShaderCompiler::IRGen
         replaceInsert(source, line, pragma.InsertID);
     }
 
-    uint32_t VaryingLocationSlots(const AST::VaryingBlock& varying)
+    struct FlatVar
     {
-        if (varying.IsStruct)
+        std::string Name{};
+        GLSLType Type{};
+        uint32_t Location{};
+        std::string UserExpr{};
+    };
+
+    static std::vector<FlatVar> FlattenVarying(const AST::VaryingBlock& v, uint32_t baseLoc)
+    {
+        std::vector<FlatVar> result;
+        uint32_t loc = baseLoc;
+        const std::string prefix = v.StructName + "_";
+
+        for (const auto& m : v.Members)
         {
-            uint32_t slots = 0;
-            for (const auto& member : varying.Members)
-                slots += GLSLTypeUtil::LocationSlots(member.Type) * member.ArraySize;
-            return slots * varying.ArraySize;
+            bool isMat = GLSLTypeUtil::IsMatrixType(m.Type);
+            GLSLType colType = GLSLTypeUtil::ColumnType(m.Type);
+            uint32_t cols = isMat ? GLSLTypeUtil::LocationSlots(m.Type) : 1;
+            uint32_t elems = m.ArraySize;
+            for (uint32_t i = 0; i < elems; i++)
+            {
+                for (uint32_t c = 0; c < cols; c++)
+                {
+                    FlatVar fv;
+                    fv.Type = colType;
+                    fv.Location = loc++;
+                    fv.Name = prefix + m.Name;
+                    if (isMat)       fv.Name += "_col" + std::to_string(c);
+                    if (elems > 1)   fv.Name += "_" + std::to_string(i);
+                    fv.UserExpr = v.InstanceName + "." + m.Name;
+                    if (elems > 1) fv.UserExpr += "[" + std::to_string(i) + "]";
+                    if (isMat)     fv.UserExpr += "[" + std::to_string(c) + "]";
+                    result.push_back(fv);
+                }
+            }
         }
-        return GLSLTypeUtil::LocationSlots(varying.Type) * varying.ArraySize;
+        return result;
     }
 
-    static void GenerateVarying(std::string& source, const AST::VaryingBlock& varying,
-                                 const bool isVertex, uint32_t location)
+    struct VaryingSync
     {
-        std::string prefix = "layout(location = ";
-        prefix += std::to_string(location) + (isVertex ? ") out " : ") in ");
+        std::string Declarations;   // layout(location=N) in/out ... 声明块
+        std::string SyncCode;       // 赋值代码
+    };
+    static VaryingSync GenerateVaryingSync(const AST::VaryingBlock& v, bool isVertex, uint32_t baseLoc)
+    {
+        VaryingSync out;
+        auto flats = FlattenVarying(v, baseLoc);
+        const char* io = isVertex ? "out" : "in";
 
+        for (const auto& fv : flats)
+        {
+            out.Declarations += "layout(location = " + std::to_string(fv.Location) + ") "
+                              + io + " " + std::string(GLSLTypeUtil::ToString(fv.Type))
+                              + " " + fv.Name + ";\n";
+            if (isVertex)
+                out.SyncCode += "    " + fv.Name + " = " + fv.UserExpr + ";\n";
+            else
+                out.SyncCode += "    " + fv.UserExpr + " = " + fv.Name + ";\n";
+        }
+        return out;
+    }
+
+    static void GenerateVarying(std::string& source, const AST::VaryingBlock& v)
+    {
         std::string line;
-        if (varying.IsStruct)
+        line += "struct " + v.StructName + "\n";
+        line += "{\n";
+        for (const auto& m : v.Members)
         {
-            line += prefix + varying.StructName + "\n{\n";
-            for (const auto& member : varying.Members)
-            {
-                line += "    " + std::string(GLSLTypeUtil::ToString(member.Type)) + " " + member.Name;
-                if (member.ArraySize > 1)
-                    line += "[" + std::to_string(member.ArraySize) + "]";
-                line += ";\n";
-            }
-            line += "}" + varying.InstanceName;
-            if (varying.ArraySize > 1)
-                line += "[" + std::to_string(varying.ArraySize) + "]";
+            line += "    " + std::string(GLSLTypeUtil::ToString(m.Type)) + " " + m.Name;
+            if (m.ArraySize > 1)
+                line += "[" + std::to_string(m.ArraySize) + "]";
             line += ";\n";
         }
-        else
-        {
-            line += prefix + std::string(GLSLTypeUtil::ToString(varying.Type)) + " " + varying.InstanceName;
-            if (varying.ArraySize > 1)
-                line += "[" + std::to_string(varying.ArraySize) + "]";
-            line += ";\n";
-        }
-        line += "#line " + std::to_string(varying.Loc.Line) + " \"" + std::string(varying.Loc.FilePath) + "\"\n";
-        replaceInsert(source, line, varying.InsertID);
+        line += "} " + v.InstanceName + ";\n";
+        line += "#line " + std::to_string(v.Loc.Line) + " \"" + std::string(v.Loc.FilePath) + "\"\n";
+        replaceInsert(source, line, v.InsertID);
     }
 
     static void GenerateVertexCode(std::string& source, const AST::GLSLCode& glsl)
     {
         std::string head = "// " + std::string(glsl.Loc.FilePath) + "\n";
         head += "#version " + std::to_string(s_Config.GlslVersion) + " core\n";
+
+        std::optional<VaryingSync> vSync;
+        if (glsl.Varying)
+            vSync = GenerateVaryingSync(*glsl.Varying, true, 0);
+        if (vSync) head += vSync->Declarations;
+
         source = head + source;
         for (const auto& attr : glsl.Attributes)
             GenerateAttribute(source, attr);
-        uint32_t vtxLoc = 0;
-        for (const auto& varying : glsl.Varyings)
-        {
-            GenerateVarying(source, varying, true, vtxLoc);
-            vtxLoc += VaryingLocationSlots(varying);
-        }
-        std::string line = "#line " + std::to_string(glsl.Vertex.Loc.Line - 1) + " \"" + std::string(glsl.Vertex.Loc.FilePath) + "\"\n";
+        if (glsl.Varying)
+            GenerateVarying(source, *glsl.Varying);
         for (const auto& fragOut : glsl.FragmentOutputs)
         {
             std::string foLine = "#line " + std::to_string(fragOut.Loc.Line) + " \"" + std::string(fragOut.Loc.FilePath) + "\"\n";
             replaceInsert(source, foLine, fragOut.InsertID);
         }
-        line += "void main()\n";
-        line += glsl.Vertex.Source + "\n";
+        std::string line = "void main()\n";
+        line += "{\n";
+        line += "#line " + std::to_string(glsl.Vertex.LocBegin.Line) + " \"" + std::string(glsl.Vertex.LocBegin.FilePath) + "\"\n";
+        line += glsl.Vertex.Source;
+        line += "#line " + std::to_string(glsl.Vertex.LocEnd.Line) + " \"" + std::string(glsl.Vertex.LocEnd.FilePath) + "\"\n";
+        if (vSync) line += vSync->SyncCode;
+        line += "}\n";
         source += line;
     }
 
@@ -140,6 +183,12 @@ namespace PrismShaderCompiler::IRGen
         for (const auto& fragOut : glsl.FragmentOutputs)
             head += "layout(location = " + std::to_string(fragOut.Location) + ") out "
                   + std::string(GLSLTypeUtil::ToString(fragOut.Type)) + " " + fragOut.Name + ";\n";
+
+        std::optional<VaryingSync> vSync;
+        if (glsl.Varying)
+            vSync = GenerateVaryingSync(*glsl.Varying, false, 0);
+        if (vSync) head += vSync->Declarations;
+
         source = head + source;
         for (const auto& attr : glsl.Attributes)
         {
@@ -151,15 +200,15 @@ namespace PrismShaderCompiler::IRGen
             std::string line = "#line " + std::to_string(fragOut.Loc.Line) + " \"" + std::string(fragOut.Loc.FilePath) + "\"\n";
             replaceInsert(source, line, fragOut.InsertID);
         }
-        uint32_t fragLoc = 0;
-        for (const auto& varying : glsl.Varyings)
-        {
-            GenerateVarying(source, varying, false, fragLoc);
-            fragLoc += VaryingLocationSlots(varying);
-        }
-        std::string line = "#line " + std::to_string(glsl.Fragment.Loc.Line - 1) + " \"" + std::string(glsl.Fragment.Loc.FilePath) + "\"\n";
-        line += "void main()\n";
-        line += glsl.Fragment.Source + "\n";
+        if (glsl.Varying)
+            GenerateVarying(source, *glsl.Varying);
+        std::string line = "void main()\n";
+        line += "{\n";
+        if (vSync) line += vSync->SyncCode;
+        line += "#line " + std::to_string(glsl.Fragment.LocBegin.Line) + " \"" + std::string(glsl.Fragment.LocBegin.FilePath) + "\"\n";
+        line += glsl.Fragment.Source;
+        line += "#line " + std::to_string(glsl.Fragment.LocEnd.Line) + " \"" + std::string(glsl.Fragment.LocEnd.FilePath) + "\"\n";
+        line += "}\n";
         source += line;
     }
 

@@ -141,6 +141,20 @@ inline bool IsMatrixType(GLSLType type)
     return type >= GLSLType::Mat2 && type <= GLSLType::Mat4x4;
 }
 
+inline GLSLType ColumnType(GLSLType type)
+{
+    switch (type)
+    {
+    case GLSLType::Mat2:   case GLSLType::Mat2x2:
+    case GLSLType::Mat2x3: case GLSLType::Mat2x4:   return GLSLType::Vec2;
+    case GLSLType::Mat3:   case GLSLType::Mat3x2:
+    case GLSLType::Mat3x3: case GLSLType::Mat3x4:   return GLSLType::Vec3;
+    case GLSLType::Mat4:   case GLSLType::Mat4x2:
+    case GLSLType::Mat4x3: case GLSLType::Mat4x4:   return GLSLType::Vec4;
+    default:                                          return type;
+    }
+}
+
 inline bool IsImageType(GLSLType type)
 {
     return type == GLSLType::Image2D
