@@ -138,6 +138,18 @@ VARYING v2f {                  // 结构体
 } vs_Output;
 ```
 
+支持数组语法：
+
+```psl
+VARYING vec4 v_Weights[4];          // 简单数组
+VARYING v2f {
+    vec4 BoneWeights[4];
+    mat3 WorldNormals;
+} vs_Output[3];                     // 结构体数组
+```
+
+> **MSL 限制**：Metal 不支持 varying 中传递矩阵数组。若启用 `-m` 生成 MSL 且着色器使用了 `mat` 数组（含结构体数组内嵌矩阵），将报错跳过该目标。GLSL / HLSL 无此限制。
+
 ### 片元输出
 
 片元着色器的输出必须使用标准 GLSL `layout(location = N) out` 声明

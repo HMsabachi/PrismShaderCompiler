@@ -1,4 +1,4 @@
-#include "Compiler.h"
+﻿#include "Compiler.h"
 #include "PSL/SourceManager.h"
 #include "PSL/TokenStream.h"
 #include "PSL/Parser.h"
@@ -8,6 +8,7 @@
 #include "Generator/GLSLGenerator.h"
 #include "Generator/HLSLGenerator.h"
 #include "Generator/MSLGenerator.h"
+#include <exception>
 
 namespace PrismShaderCompiler
 {
@@ -81,71 +82,44 @@ CompiledShader ShaderCompiler::CompileFile(const std::string& filePath)
 }
 
 PassOutput ShaderCompiler::GenerateGLSL(const CompiledShader& shader,
-                                         uint32_t passIndex,
-                                         const std::vector<std::string>& keywords)
+    uint32_t passIndex,
+    const std::vector<std::string>& keywords)
 {
-    PassOutput out;
-    if (passIndex >= shader.PassGLSL.size())
+    auto out = GenerateSPIRV(shader, passIndex, keywords);
+    try
     {
-        Log::Instance().Error("Pass index {} out of range ({} passes)",
-                              passIndex, shader.PassGLSL.size());
-        return out;
+        auto glsl = DecompileSPIRV({ out.SpirvVertex, out.SpirvFragment });
+        out.VertexShader = std::move(glsl.Vertex);
+        out.FragmentShader = std::move(glsl.Fragment);
     }
-
-    auto ir = IRGen::Generate(shader.PassGLSL[passIndex],
-                              shader.Uniforms,
-                              shader.ShaderName,
-                              keywords);
-
-    auto vsSPV = CompileGLSL(ir.Vertex, ShaderStageType::Vertex);
-    auto fsSPV = CompileGLSL(ir.Fragment, ShaderStageType::Fragment);
-
-    if (!vsSPV.Success)
+    catch (const std::exception& e)
     {
-        for (auto& e : vsSPV.Errors)
-            Log::Instance().Error("VS SPIR-V: {}", e);
+        out.Errors.push_back(std::string("GLSL cross-compilation failed: ") + e.what());
     }
-    if (!fsSPV.Success)
-    {
-        for (auto& e : fsSPV.Errors)
-            Log::Instance().Error("FS SPIR-V: {}", e);
-    }
-
-    auto glsl = DecompileSPIRV({vsSPV.Bytecode, fsSPV.Bytecode});
-    out.VertexShader   = std::move(glsl.Vertex);
-    out.FragmentShader = std::move(glsl.Fragment);
-    out.SpirvVertex    = std::move(vsSPV.Bytecode);
-    out.SpirvFragment  = std::move(fsSPV.Bytecode);
-
-    for (auto& e : vsSPV.Errors) out.Errors.push_back(std::move(e));
-    for (auto& w : vsSPV.Warnings) out.Warnings.push_back(std::move(w));
-    for (auto& e : fsSPV.Errors) out.Errors.push_back(std::move(e));
-    for (auto& w : fsSPV.Warnings) out.Warnings.push_back(std::move(w));
-
     return out;
 }
 
 PassOutput ShaderCompiler::GenerateSPIRV(const CompiledShader& shader,
-                                          uint32_t passIndex,
-                                          const std::vector<std::string>& keywords)
+    uint32_t passIndex,
+    const std::vector<std::string>& keywords)
 {
     PassOutput out;
     if (passIndex >= shader.PassGLSL.size())
     {
         Log::Instance().Error("Pass index {} out of range ({} passes)",
-                              passIndex, shader.PassGLSL.size());
+            passIndex, shader.PassGLSL.size());
         return out;
     }
 
     auto glsl = IRGen::Generate(shader.PassGLSL[passIndex],
-                                shader.Uniforms,
-                                shader.ShaderName,
-                                keywords);
+        shader.Uniforms,
+        shader.ShaderName,
+        keywords);
 
     auto vsSPV = CompileGLSL(glsl.Vertex, ShaderStageType::Vertex);
     auto fsSPV = CompileGLSL(glsl.Fragment, ShaderStageType::Fragment);
 
-    out.SpirvVertex   = std::move(vsSPV.Bytecode);
+    out.SpirvVertex = std::move(vsSPV.Bytecode);
     out.SpirvFragment = std::move(fsSPV.Bytecode);
 
     for (auto& e : vsSPV.Errors) out.Errors.push_back(std::move(e));
@@ -157,22 +131,36 @@ PassOutput ShaderCompiler::GenerateSPIRV(const CompiledShader& shader,
 }
 
 PassOutput ShaderCompiler::GenerateHLSL(const CompiledShader& shader,
-                                         uint32_t passIndex,
-                                         const std::vector<std::string>& keywords)
+    uint32_t passIndex,
+    const std::vector<std::string>& keywords)
 {
     auto out = GenerateSPIRV(shader, passIndex, keywords);
-    out.VertexShader   = DecompileHLSL(out.SpirvVertex);
-    out.FragmentShader = DecompileHLSL(out.SpirvFragment);
+    try
+    {
+        out.VertexShader = DecompileHLSL(out.SpirvVertex);
+        out.FragmentShader = DecompileHLSL(out.SpirvFragment);
+    }
+    catch (const std::exception& e)
+    {
+        out.Errors.push_back(std::string("HLSL cross-compilation failed: ") + e.what());
+    }
     return out;
 }
 
 PassOutput ShaderCompiler::GenerateMSL(const CompiledShader& shader,
-                                        uint32_t passIndex,
-                                        const std::vector<std::string>& keywords)
+    uint32_t passIndex,
+    const std::vector<std::string>& keywords)
 {
     auto out = GenerateSPIRV(shader, passIndex, keywords);
-    out.VertexShader   = DecompileMSL(out.SpirvVertex);
-    out.FragmentShader = DecompileMSL(out.SpirvFragment);
+    try
+    {
+        out.VertexShader = DecompileMSL(out.SpirvVertex);
+        out.FragmentShader = DecompileMSL(out.SpirvFragment);
+    }
+    catch (const std::exception& e)
+    {
+        out.Errors.push_back(std::string("MSL cross-compilation failed: ") + e.what());
+    }
     return out;
 }
 

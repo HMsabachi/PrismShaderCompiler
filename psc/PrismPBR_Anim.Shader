@@ -75,6 +75,7 @@ Shader "Custom/SimplePBR_Animated"
                     mat3 WorldNormals;
                     mat3 WorldTransform;
                     vec3 Binormal;
+                    mat4 ShadowMapCoords[4];
                 } vs_Output;
 
                 void main()

@@ -64,10 +64,22 @@ namespace PrismShaderCompiler::IRGen
         replaceInsert(source, line, pragma.InsertID);
     }
 
+    uint32_t VaryingLocationSlots(const AST::VaryingBlock& varying)
+    {
+        if (varying.IsStruct)
+        {
+            uint32_t slots = 0;
+            for (const auto& member : varying.Members)
+                slots += GLSLTypeUtil::LocationSlots(member.Type) * member.ArraySize;
+            return slots * varying.ArraySize;
+        }
+        return GLSLTypeUtil::LocationSlots(varying.Type) * varying.ArraySize;
+    }
+
     static void GenerateVarying(std::string& source, const AST::VaryingBlock& varying,
                                  const bool isVertex, uint32_t location)
     {
-        std::string prefix = isVertex ? "layout(location = " : "layout(location = ";
+        std::string prefix = "layout(location = ";
         prefix += std::to_string(location) + (isVertex ? ") out " : ") in ");
 
         std::string line;
@@ -75,12 +87,23 @@ namespace PrismShaderCompiler::IRGen
         {
             line += prefix + varying.StructName + "\n{\n";
             for (const auto& member : varying.Members)
-                line += "    " + std::string(GLSLTypeUtil::ToString(member.Type)) + " " + member.Name + ";\n";
-            line += "}" + varying.InstanceName + ";\n";
+            {
+                line += "    " + std::string(GLSLTypeUtil::ToString(member.Type)) + " " + member.Name;
+                if (member.ArraySize > 1)
+                    line += "[" + std::to_string(member.ArraySize) + "]";
+                line += ";\n";
+            }
+            line += "}" + varying.InstanceName;
+            if (varying.ArraySize > 1)
+                line += "[" + std::to_string(varying.ArraySize) + "]";
+            line += ";\n";
         }
         else
         {
-            line += prefix + std::string(GLSLTypeUtil::ToString(varying.Type)) + " " + varying.InstanceName + ";\n";
+            line += prefix + std::string(GLSLTypeUtil::ToString(varying.Type)) + " " + varying.InstanceName;
+            if (varying.ArraySize > 1)
+                line += "[" + std::to_string(varying.ArraySize) + "]";
+            line += ";\n";
         }
         line += "#line " + std::to_string(varying.Loc.Line) + " \"" + std::string(varying.Loc.FilePath) + "\"\n";
         replaceInsert(source, line, varying.InsertID);
@@ -93,8 +116,12 @@ namespace PrismShaderCompiler::IRGen
         source = head + source;
         for (const auto& attr : glsl.Attributes)
             GenerateAttribute(source, attr);
-        for (uint32_t vloc = 0; vloc < glsl.Varyings.size(); vloc++)
-            GenerateVarying(source, glsl.Varyings[vloc], true, vloc);
+        uint32_t vtxLoc = 0;
+        for (const auto& varying : glsl.Varyings)
+        {
+            GenerateVarying(source, varying, true, vtxLoc);
+            vtxLoc += VaryingLocationSlots(varying);
+        }
         std::string line = "#line " + std::to_string(glsl.Vertex.Loc.Line - 1) + " \"" + std::string(glsl.Vertex.Loc.FilePath) + "\"\n";
         for (const auto& fragOut : glsl.FragmentOutputs)
         {
@@ -124,8 +151,12 @@ namespace PrismShaderCompiler::IRGen
             std::string line = "#line " + std::to_string(fragOut.Loc.Line) + " \"" + std::string(fragOut.Loc.FilePath) + "\"\n";
             replaceInsert(source, line, fragOut.InsertID);
         }
-        for (uint32_t vloc = 0; vloc < glsl.Varyings.size(); vloc++)
-            GenerateVarying(source, glsl.Varyings[vloc], false, vloc);
+        uint32_t fragLoc = 0;
+        for (const auto& varying : glsl.Varyings)
+        {
+            GenerateVarying(source, varying, false, fragLoc);
+            fragLoc += VaryingLocationSlots(varying);
+        }
         std::string line = "#line " + std::to_string(glsl.Fragment.Loc.Line - 1) + " \"" + std::string(glsl.Fragment.Loc.FilePath) + "\"\n";
         line += "void main()\n";
         line += glsl.Fragment.Source + "\n";

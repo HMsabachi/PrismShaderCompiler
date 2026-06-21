@@ -616,12 +616,25 @@ void Parser::ParseGLSLVarying(AST::GLSLCode& glsl, uint32_t id)
             }
             GLSLType memberType = GLSLTypeUtil::FromTokenType(ConsumeType("期望成员类型").Type);
             std::string memberName = TokenStr(Advance());
+            uint32_t memberArraySize = 1;
+            if (Check(TokenType::LeftBracket))
+            {
+                Advance();
+                memberArraySize = (uint32_t)TokenInt(Consume(TokenType::IntegerLiteral, "期望数组大小"));
+                Consume(TokenType::RightBracket, "期望 ']'");
+            }
             Consume(TokenType::Semicolon, "期望 ';'");
-            block.Members.push_back({ memberType, memberName });
+            block.Members.push_back({ memberType, memberName, memberArraySize });
         }
         Consume(TokenType::RightBrace, "期望 '}'");
 
         block.InstanceName = TokenStr(Advance());
+        if (Check(TokenType::LeftBracket))
+        {
+            Advance();
+            block.ArraySize = (uint32_t)TokenInt(Consume(TokenType::IntegerLiteral, "期望数组大小"));
+            Consume(TokenType::RightBracket, "期望 ']'");
+        }
         Consume(TokenType::Semicolon, "期望 ';'");
     }
     else
@@ -629,6 +642,12 @@ void Parser::ParseGLSLVarying(AST::GLSLCode& glsl, uint32_t id)
         block.IsStruct = false;
         block.Type = GLSLTypeUtil::FromTokenType(firstToken.Type);
         block.InstanceName = TokenStr(Consume(TokenType::Identifier, "期望变量名"));
+        if (Check(TokenType::LeftBracket))
+        {
+            Advance();
+            block.ArraySize = (uint32_t)TokenInt(Consume(TokenType::IntegerLiteral, "期望数组大小"));
+            Consume(TokenType::RightBracket, "期望 ']'");
+        }
         Consume(TokenType::Semicolon, "期望 ';'");
     }
 

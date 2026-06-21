@@ -148,6 +148,20 @@ inline bool IsImageType(GLSLType type)
         || type == GLSLType::ImageCube;
 }
 
+inline uint32_t LocationSlots(GLSLType type)
+{
+    switch (type)
+    {
+    case GLSLType::Mat2:    case GLSLType::Mat2x2:
+    case GLSLType::Mat2x3:  case GLSLType::Mat2x4:   return 2;
+    case GLSLType::Mat3:    case GLSLType::Mat3x2:
+    case GLSLType::Mat3x3:  case GLSLType::Mat3x4:   return 3;
+    case GLSLType::Mat4:    case GLSLType::Mat4x2:
+    case GLSLType::Mat4x3:  case GLSLType::Mat4x4:   return 4;
+    default:                                          return 1;
+    }
+}
+
 inline GLSLType FromTokenType(TokenType t)
 {
     switch (t)

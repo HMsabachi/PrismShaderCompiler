@@ -30,6 +30,7 @@ struct VaryingMember
 {
     GLSLType Type = GLSLType::None;
     std::string Name;
+    uint32_t ArraySize = 1;
 };
 
 struct VaryingBlock
@@ -39,6 +40,7 @@ struct VaryingBlock
     std::string InstanceName;
     std::vector<VaryingMember> Members;
     GLSLType Type = GLSLType::None;
+    uint32_t ArraySize = 1;
     uint32_t InsertID = 0;
     SourceLocation Loc;
 };

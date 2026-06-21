@@ -92,6 +92,12 @@ int main(int argc, char* argv[])
 
     if (!(targets & 15)) targets |= (uint8_t)Target::GLSL; // 默认 glsl
 
+    auto report = [](const psc::PassOutput& out, const std::string& target) {
+        for (auto& e : out.Errors)   spdlog::error("[{}] {}", target, e);
+        for (auto& w : out.Warnings) spdlog::warn("[{}] {}", target, w);
+        return out.Errors.empty();
+    };
+
     for (uint32_t i = 0; i < shader.Passes.size(); ++i)
     {
         std::string base = shader.Passes.size() > 1
@@ -103,30 +109,42 @@ int main(int argc, char* argv[])
         if (targets & (uint8_t)Target::GLSL)
         {
             auto out = compiler.GenerateGLSL(shader, i, defines);
-            WriteFile((std::filesystem::path(outputDir) / (base + ".vert.glsl")).string(), out.VertexShader);
-            WriteFile((std::filesystem::path(outputDir) / (base + ".frag.glsl")).string(), out.FragmentShader);
-            spdlog::info("{}.vert.glsl / {}.frag.glsl", base, base);
+            if (report(out, "GLSL"))
+            {
+                WriteFile((std::filesystem::path(outputDir) / (base + ".vert.glsl")).string(), out.VertexShader);
+                WriteFile((std::filesystem::path(outputDir) / (base + ".frag.glsl")).string(), out.FragmentShader);
+                spdlog::info("{}.vert.glsl / {}.frag.glsl", base, base);
+            }
         }
         if (targets & (uint8_t)Target::HLSL)
         {
             auto out = compiler.GenerateHLSL(shader, i, defines);
-            WriteFile((std::filesystem::path(outputDir) / (base + ".vert.hlsl")).string(), out.VertexShader);
-            WriteFile((std::filesystem::path(outputDir) / (base + ".frag.hlsl")).string(), out.FragmentShader);
-            spdlog::info("{}.vert.hlsl / {}.frag.hlsl", base, base);
+            if (report(out, "HLSL"))
+            {
+                WriteFile((std::filesystem::path(outputDir) / (base + ".vert.hlsl")).string(), out.VertexShader);
+                WriteFile((std::filesystem::path(outputDir) / (base + ".frag.hlsl")).string(), out.FragmentShader);
+                spdlog::info("{}.vert.hlsl / {}.frag.hlsl", base, base);
+            }
         }
         if (targets & (uint8_t)Target::MSL)
         {
             auto out = compiler.GenerateMSL(shader, i, defines);
-            WriteFile((std::filesystem::path(outputDir) / (base + ".vert.metal")).string(), out.VertexShader);
-            WriteFile((std::filesystem::path(outputDir) / (base + ".frag.metal")).string(), out.FragmentShader);
-            spdlog::info("{}.vert.metal / {}.frag.metal", base, base);
+            if (report(out, "MSL"))
+            {
+                WriteFile((std::filesystem::path(outputDir) / (base + ".vert.metal")).string(), out.VertexShader);
+                WriteFile((std::filesystem::path(outputDir) / (base + ".frag.metal")).string(), out.FragmentShader);
+                spdlog::info("{}.vert.metal / {}.frag.metal", base, base);
+            }
         }
         if (targets & (uint8_t)Target::SPIRV)
         {
             auto out = compiler.GenerateSPIRV(shader, i, defines);
-            WriteBinaryFile((std::filesystem::path(outputDir) / (base + ".vert.spv")).string(), out.SpirvVertex);
-            WriteBinaryFile((std::filesystem::path(outputDir) / (base + ".frag.spv")).string(), out.SpirvFragment);
-            spdlog::info("{}.vert.spv / {}.frag.spv", base, base);
+            if (report(out, "SPIRV"))
+            {
+                WriteBinaryFile((std::filesystem::path(outputDir) / (base + ".vert.spv")).string(), out.SpirvVertex);
+                WriteBinaryFile((std::filesystem::path(outputDir) / (base + ".frag.spv")).string(), out.SpirvFragment);
+                spdlog::info("{}.vert.spv / {}.frag.spv", base, base);
+            }
         }
     }
 

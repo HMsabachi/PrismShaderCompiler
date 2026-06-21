@@ -1,5 +1,7 @@
 ﻿#include "Metadata.h"
 #include "PSL/GLSLType.h"
+#include "Property/VertexType.h"
+#include "Generator/IRGenerator.h"
 #include <json/json.hpp>
 
 namespace PrismShaderCompiler
@@ -103,7 +105,52 @@ namespace PrismShaderCompiler
 
             if (i < shader.PassGLSL.size())
             {
-                auto& fragOutputs = shader.PassGLSL[i].FragmentOutputs;
+                auto& glsl = shader.PassGLSL[i];
+
+                auto& jattrs = jp["attributes"] = nlohmann::json::array();
+                for (auto& attr : glsl.Attributes)
+                {
+                    nlohmann::json ja;
+                    ja["name"]     = attr.Name;
+                    ja["type"]     = GLSLTypeUtil::ToString(attr.Type);
+                    ja["semantic"] = (int)attr.Semantic;
+                    ja["location"] = SemanticToLocation(attr.Semantic);
+                    jattrs.push_back(std::move(ja));
+                }
+
+                auto& jvaryings = jp["varyings"] = nlohmann::json::array();
+                uint32_t vLoc = 0;
+                for (auto& v : glsl.Varyings)
+                {
+                    nlohmann::json jv;
+                    jv["location"] = vLoc;
+                    jv["slots"]    = IRGen::VaryingLocationSlots(v);
+                    vLoc += (uint32_t)jv["slots"];
+                    if (v.IsStruct)
+                    {
+                        jv["struct"] = v.StructName;
+                        jv["instance"] = v.InstanceName;
+                        if (v.ArraySize > 1) jv["arraySize"] = v.ArraySize;
+                        auto& jmembers = jv["members"] = nlohmann::json::array();
+                        for (auto& m : v.Members)
+                        {
+                            nlohmann::json jm;
+                            jm["name"] = m.Name;
+                            jm["type"] = GLSLTypeUtil::ToString(m.Type);
+                            if (m.ArraySize > 1) jm["arraySize"] = m.ArraySize;
+                            jmembers.push_back(std::move(jm));
+                        }
+                    }
+                    else
+                    {
+                        jv["name"] = v.InstanceName;
+                        jv["type"] = GLSLTypeUtil::ToString(v.Type);
+                        if (v.ArraySize > 1) jv["arraySize"] = v.ArraySize;
+                    }
+                    jvaryings.push_back(std::move(jv));
+                }
+
+                auto& fragOutputs = glsl.FragmentOutputs;
                 if (!fragOutputs.empty())
                 {
                     auto& jouts = jp["outputs"] = nlohmann::json::array();
