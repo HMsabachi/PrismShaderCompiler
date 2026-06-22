@@ -64,7 +64,16 @@ CompiledShader ShaderCompiler::Compile(const std::string& source,
             }
         }
 
-        result.Passes.push_back({passDef.Name, passDef.Tags, passDef.RenderState});
+        std::optional<PipelineState> effectiveState = doc.RenderState;
+        if (passDef.RenderState)
+        {
+            if (effectiveState)
+                effectiveState->Merge(*passDef.RenderState);
+            else
+                effectiveState = passDef.RenderState;
+        }
+
+        result.Passes.push_back({passDef.Name, passDef.Tags, effectiveState});
         result.PassGLSL.push_back(std::move(passDef.Glsl));
     }
 

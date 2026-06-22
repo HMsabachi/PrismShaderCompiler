@@ -331,10 +331,14 @@ PipelineState Parser::ParseRenderCommand()
         {
             Advance();
             if (Check(TokenType::OffKw))
-                { Advance(); state.BlendEnabled = false; }
+            {
+                Advance(); state.BlendEnabled = false;
+                state.Mark(PipelineState::Field::BlendEnabled);
+            }
             else
             {
                 state.BlendEnabled = true;
+                state.Mark(PipelineState::Field::BlendEnabled);
                 // SrcFactor DstFactor [SrcAlpha DstAlpha]
                 if (Check(TokenType::SrcAlphaKw))     { Advance(); state.SrcFactor = BlendFactor::SrcAlpha; }
                 else if (Check(TokenType::OneKw))      { Advance(); state.SrcFactor = BlendFactor::One; }
@@ -342,6 +346,7 @@ PipelineState Parser::ParseRenderCommand()
                 else if (Check(TokenType::DstAlphaKw)) { Advance(); state.SrcFactor = BlendFactor::DstAlpha; }
                 else if (Check(TokenType::OneMinusSrcAlphaKw)) { Advance(); state.SrcFactor = BlendFactor::OneMinusSrcAlpha; }
                 else if (Check(TokenType::OneMinusDstAlphaKw)) { Advance(); state.SrcFactor = BlendFactor::OneMinusDstAlpha; }
+                state.Mark(PipelineState::Field::SrcFactor);
 
                 if (Check(TokenType::SrcAlphaKw))     { Advance(); state.DstFactor = BlendFactor::SrcAlpha; }
                 else if (Check(TokenType::OneKw))      { Advance(); state.DstFactor = BlendFactor::One; }
@@ -349,6 +354,7 @@ PipelineState Parser::ParseRenderCommand()
                 else if (Check(TokenType::DstAlphaKw)) { Advance(); state.DstFactor = BlendFactor::DstAlpha; }
                 else if (Check(TokenType::OneMinusSrcAlphaKw)) { Advance(); state.DstFactor = BlendFactor::OneMinusSrcAlpha; }
                 else if (Check(TokenType::OneMinusDstAlphaKw)) { Advance(); state.DstFactor = BlendFactor::OneMinusDstAlpha; }
+                state.Mark(PipelineState::Field::DstFactor);
 
                 // 可选的独立 alpha blend 参数
                 if (!Check(TokenType::RightBrace) && !Check(TokenType::CullKw)
@@ -361,6 +367,7 @@ PipelineState Parser::ParseRenderCommand()
                     else if (Check(TokenType::DstAlphaKw)) { Advance(); state.SrcAlpha = BlendFactor::DstAlpha; }
                     else if (Check(TokenType::OneMinusSrcAlphaKw)) { Advance(); state.SrcAlpha = BlendFactor::OneMinusSrcAlpha; }
                     else if (Check(TokenType::OneMinusDstAlphaKw)) { Advance(); state.SrcAlpha = BlendFactor::OneMinusDstAlpha; }
+                    state.Mark(PipelineState::Field::SrcAlpha);
 
                     if (Check(TokenType::SrcAlphaKw))     { Advance(); state.DstAlpha = BlendFactor::SrcAlpha; }
                     else if (Check(TokenType::OneKw))      { Advance(); state.DstAlpha = BlendFactor::One; }
@@ -368,6 +375,7 @@ PipelineState Parser::ParseRenderCommand()
                     else if (Check(TokenType::DstAlphaKw)) { Advance(); state.DstAlpha = BlendFactor::DstAlpha; }
                     else if (Check(TokenType::OneMinusSrcAlphaKw)) { Advance(); state.DstAlpha = BlendFactor::OneMinusSrcAlpha; }
                     else if (Check(TokenType::OneMinusDstAlphaKw)) { Advance(); state.DstAlpha = BlendFactor::OneMinusDstAlpha; }
+                    state.Mark(PipelineState::Field::DstAlpha);
                 }
             }
         }
@@ -377,25 +385,37 @@ PipelineState Parser::ParseRenderCommand()
             if (Check(TokenType::OffKw))    { Advance(); state.Cull = CullMode::Off; }
             else if (Check(TokenType::BackKw))  { Advance(); state.Cull = CullMode::Back; }
             else if (Check(TokenType::FrontKw)) { Advance(); state.Cull = CullMode::Front; }
+            state.Mark(PipelineState::Field::Cull);
         }
         else if (Check(TokenType::ZTestKw))
         {
             Advance();
-            if (Check(TokenType::OffKw))       { Advance(); state.DepthTest = false; }
-            else if (Check(TokenType::NeverKw))     { Advance(); state.DepthCompare = DepthFunc::Never; }
-            else if (Check(TokenType::LessKw))      { Advance(); state.DepthCompare = DepthFunc::Less; }
-            else if (Check(TokenType::EqualKw))     { Advance(); state.DepthCompare = DepthFunc::Equal; }
-            else if (Check(TokenType::LEqualKw))    { Advance(); state.DepthCompare = DepthFunc::LEqual; }
-            else if (Check(TokenType::GreaterKw))   { Advance(); state.DepthCompare = DepthFunc::Greater; }
-            else if (Check(TokenType::NotEqualKw))  { Advance(); state.DepthCompare = DepthFunc::NotEqual; }
-            else if (Check(TokenType::GEqualKw))   { Advance(); state.DepthCompare = DepthFunc::GEqual; }
-            else if (Check(TokenType::AlwaysKw))    { Advance(); state.DepthCompare = DepthFunc::Always; }
+            if (Check(TokenType::OffKw))
+            {
+                Advance(); state.DepthTest = false;
+                state.Mark(PipelineState::Field::DepthTest);
+            }
+            else
+            {
+                state.DepthTest = true;
+                if (Check(TokenType::NeverKw))     { Advance(); state.DepthCompare = DepthFunc::Never; }
+                else if (Check(TokenType::LessKw))      { Advance(); state.DepthCompare = DepthFunc::Less; }
+                else if (Check(TokenType::EqualKw))     { Advance(); state.DepthCompare = DepthFunc::Equal; }
+                else if (Check(TokenType::LEqualKw))    { Advance(); state.DepthCompare = DepthFunc::LEqual; }
+                else if (Check(TokenType::GreaterKw))   { Advance(); state.DepthCompare = DepthFunc::Greater; }
+                else if (Check(TokenType::NotEqualKw))  { Advance(); state.DepthCompare = DepthFunc::NotEqual; }
+                else if (Check(TokenType::GEqualKw))   { Advance(); state.DepthCompare = DepthFunc::GEqual; }
+                else if (Check(TokenType::AlwaysKw))    { Advance(); state.DepthCompare = DepthFunc::Always; }
+                state.Mark(PipelineState::Field::DepthTest);
+                state.Mark(PipelineState::Field::DepthCompare);
+            }
         }
         else if (Check(TokenType::ZWriteKw))
         {
             Advance();
             if (Check(TokenType::OnKw)) { Advance(); state.DepthWrite = true; }
             else { Advance(); state.DepthWrite = false; }
+            state.Mark(PipelineState::Field::DepthWrite);
         }
         else if (Check(TokenType::ColorMaskKw))
         {
@@ -410,6 +430,7 @@ PipelineState Parser::ParseRenderCommand()
             else if (v == "A")         state.WriteMask = ColorMask::A;
             else if (v == "0")         state.WriteMask = ColorMask::None;
             else                       Error("非法的 ColorMask 值: " + v);
+            state.Mark(PipelineState::Field::WriteMask);
         }
         else if (Check(TokenType::OffsetKw))
         {
@@ -417,6 +438,8 @@ PipelineState Parser::ParseRenderCommand()
             state.DepthBiasFactor = TokenFloat(ConsumeNumber("期望 factor"));
             Match(TokenType::Comma);
             state.DepthBiasUnits = TokenFloat(ConsumeNumber("期望 units"));
+            state.Mark(PipelineState::Field::DepthBiasFactor);
+            state.Mark(PipelineState::Field::DepthBiasUnits);
         }
         else
             Advance();
