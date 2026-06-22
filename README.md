@@ -163,7 +163,7 @@ auto shader = compiler.CompileFile("path/to/Shader.shader");
 shader.ShaderName;          // Shader 名称
 shader.Uniforms;            // 属性列表（面板用）
 shader.Passes;              // Pass 信息
-shader.Keywords;            // Variant 关键字
+shader.Keywords;            // Variant 关键字 (vector<KeywordDef>，含 IsMultiCompile 标志：true=multi_compile 全量，false=shader_feature 按需)
 shader.MaterialLayout;      // UBO 布局
 shader.RenderState;         // 渲染状态
 std::string json = ToJson(shader);  // JSON 序列化

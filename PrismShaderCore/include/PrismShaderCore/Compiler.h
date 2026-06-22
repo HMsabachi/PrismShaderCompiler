@@ -19,6 +19,12 @@ struct PassInfo
     std::optional<PipelineState> RenderState;
 };
 
+struct KeywordDef
+{
+    std::string Name;
+    bool IsMultiCompile = false;
+};
+
 struct CompiledShader
 {
     std::string ShaderName;
@@ -26,7 +32,7 @@ struct CompiledShader
 
     std::vector<AST::ShaderUniform> Uniforms;
     std::vector<PassInfo> Passes;
-    std::vector<std::string> Keywords;
+    std::vector<KeywordDef> Keywords;
     PropertyLayout MaterialLayout;
     std::optional<PipelineState> RenderState;
 

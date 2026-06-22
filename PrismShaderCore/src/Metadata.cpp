@@ -161,7 +161,14 @@ namespace PrismShaderCompiler
             jpasses.push_back(std::move(jp));
         }
 
-        j["keywords"] = shader.Keywords;
+        auto& jkws = j["keywords"] = nlohmann::json::array();
+        for (auto& kw : shader.Keywords)
+        {
+            nlohmann::json jkw;
+            jkw["name"]          = kw.Name;
+            jkw["multi_compile"] = kw.IsMultiCompile;
+            jkws.push_back(std::move(jkw));
+        }
 
         return j.dump(2);
     }

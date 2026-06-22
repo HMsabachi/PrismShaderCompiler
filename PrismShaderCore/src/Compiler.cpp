@@ -57,9 +57,10 @@ CompiledShader ShaderCompiler::Compile(const std::string& source,
         {
             for (auto& kw : pragma.Keywords)
             {
-                if (std::find(result.Keywords.begin(), result.Keywords.end(), kw)
-                    == result.Keywords.end())
-                    result.Keywords.push_back(kw);
+                auto it = std::find_if(result.Keywords.begin(), result.Keywords.end(),
+                    [&](const KeywordDef& d) { return d.Name == kw; });
+                if (it == result.Keywords.end())
+                    result.Keywords.push_back({ kw, pragma.IsMultiCompile });
             }
         }
 
