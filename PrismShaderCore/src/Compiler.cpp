@@ -140,6 +140,25 @@ PassOutput ShaderCompiler::GenerateSPIRV(const CompiledShader& shader,
     return out;
 }
 
+
+PassOutput ShaderCompiler::GenerateIR(const CompiledShader& shader, uint32_t passIndex, const std::vector<std::string>& keywords /*= {}*/)
+{
+    PassOutput out;
+    if (passIndex >= shader.PassGLSL.size())
+    {
+        Log::Instance().Error("Pass index {} out of range ({} passes)",
+            passIndex, shader.PassGLSL.size());
+        return out;
+    }
+    auto glsl = IRGen::Generate(shader.PassGLSL[passIndex],
+        shader.Uniforms,
+        shader.ShaderName,
+        keywords);
+    out.VertexShader = std::move(glsl.Vertex);
+    out.FragmentShader = std::move(glsl.Fragment);
+    return out;
+}
+
 PassOutput ShaderCompiler::GenerateHLSL(const CompiledShader& shader,
     uint32_t passIndex,
     const std::vector<std::string>& keywords)

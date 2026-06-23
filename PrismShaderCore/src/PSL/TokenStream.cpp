@@ -77,7 +77,6 @@ TokenType TokenStream::LookupKeyword(const char* str, uint32_t len)
         if (CmpN(str, "GEqual"))   return TokenType::GEqualKw;
         if (CmpN(str, "Color3"))   return TokenType::Color3Kw;
         if (CmpN(str, "Offset"))   return TokenType::OffsetKw;
-        if (CmpN(str, "pragma"))   return TokenType::PragmaKw;
         if (CmpN(str, "layout"))   return TokenType::LayoutKw;
         if (CmpN(str, "double"))   return TokenType::DoubleGLSLKw;
         if (CmpN(str, "mat2x2"))   return TokenType::Mat2x2GLSLKw;
@@ -100,7 +99,6 @@ TokenType TokenStream::LookupKeyword(const char* str, uint32_t len)
         if (CmpN(str, "Greater"))  return TokenType::GreaterKw;
         if (CmpN(str, "VARYING"))  return TokenType::VaryingKw;
         if (CmpN(str, "varying"))  return TokenType::VaryingKw;
-        if (CmpN(str, "include"))  return TokenType::IncludeKw;
         if (CmpN(str, "image2D"))  return TokenType::Image2DGLSLKw;
         if (CmpN(str, "image3D"))  return TokenType::Image3DGLSLKw;
         break;
@@ -258,6 +256,9 @@ Token TokenStream::LexSingle()
     // 字符串
     if (c == '"') return LexString();
 
+    // 预处理指令
+    if (c == '#') return LexPreprocessDirective();
+
     // 数字
     if (isdigit(static_cast<unsigned char>(c)))                      return LexNumber();
     if (c == '.' && isdigit(static_cast<unsigned char>(m_Ptr[1])))   return LexNumber();
@@ -359,7 +360,6 @@ Token TokenStream::LexOperator(char c)
     case ';': return { TokenType::Semicolon,   start, 1 };
     case '?': return { TokenType::Question,    start, 1 };
     case '~': return { TokenType::Tilde,       start, 1 };
-    case '#': return { TokenType::Hash,        start, 1 };
     case '.': return { TokenType::Dot,         start, 1 };
 
     case '=':
@@ -409,6 +409,16 @@ Token TokenStream::LexOperator(char c)
     if (m_Diag)
         m_Diag->Error(std::string("未识别的字符 '") + c + "'", m_SM.GetLocation(start));
     return { TokenType::Invalid, start, 1 };
+}
+
+Token TokenStream::LexPreprocessDirective()
+{
+    uint32_t start = m_ByteOffset;
+    m_Ptr++; m_ByteOffset++;
+    while (isalnum(static_cast<unsigned char>(*m_Ptr)) || *m_Ptr == '_')
+        { m_Ptr++; m_ByteOffset++; }
+    uint32_t len = m_ByteOffset - start;
+    return { TokenType::PreprocessDirective, start, len };
 }
 
 } // namespace PrismShaderCompiler

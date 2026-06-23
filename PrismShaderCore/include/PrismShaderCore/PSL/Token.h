@@ -32,7 +32,8 @@ enum class TokenType : uint8_t
     Equals,             // '='
     Colon,              // ':'
     Semicolon,          // ';'
-    Hash,               // '#'
+
+    PreprocessDirective, // '#include' / '#pragma' 等预处理指令
 
     // GLSL operators — 单字符
     Plus,               // '+'
@@ -194,8 +195,6 @@ enum class TokenType : uint8_t
     // GLSL types — atomic
     AtomicUIntGLSLKw,
 
-    IncludeKw,
-    PragmaKw,
     ShaderFeatureKw,
     MultiCompileKw,
 

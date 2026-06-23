@@ -164,11 +164,9 @@ const char* TokenTypeToString(TokenType type)
     case TokenType::Image3DGLSLKw:              return "'image3D'";
     case TokenType::ImageCubeGLSLKw:            return "'imageCube'";
     case TokenType::AtomicUIntGLSLKw:           return "'atomic_uint'";
-    case TokenType::IncludeKw:          return "'include'";
-    case TokenType::PragmaKw:           return "'pragma'";
     case TokenType::ShaderFeatureKw:    return "'shader_feature'";
     case TokenType::MultiCompileKw:     return "'multi_compile'";
-    case TokenType::Hash:               return "'#'";
+    case TokenType::PreprocessDirective: return "'#directive'";
     case TokenType::TrueKw:             return "'true'";
     case TokenType::FalseKw:            return "'false'";
     }

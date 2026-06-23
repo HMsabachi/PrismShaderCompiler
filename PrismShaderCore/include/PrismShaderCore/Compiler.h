@@ -88,6 +88,9 @@ public:
     PassOutput GenerateSPIRV(const CompiledShader& shader,
                               uint32_t passIndex,
                               const std::vector<std::string>& keywords = {});
+    PassOutput GenerateIR(const CompiledShader& shader,
+                            uint32_t passIndex,
+                            const std::vector<std::string>& keywords = {});
 
     const CompilerConfig& GetConfig() const { return m_Config; }
 

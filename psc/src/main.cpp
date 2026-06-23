@@ -33,11 +33,11 @@ int main(int argc, char* argv[])
     std::vector<std::string> defines;
     bool verbose = false;
 
-    enum class Target : uint8_t { GLSL = 1, HLSL = 2, MSL = 4, SPIRV = 8, JSON = 16, All = 31 };
-    uint8_t targets = 0;
+    enum class Target : uint32_t { GLSL = 1, HLSL = 2, MSL = 4, SPIRV = 8, IR = 16, JSON = 32, All = 63 };
+    uint32_t targets = 0;
 
     auto addTarget = [&](std::string flags, Target t, std::string desc) {
-        app.add_flag(flags, [&targets, t](int64_t) { targets |= (uint8_t)t; }, desc);
+        app.add_flag(flags, [&targets, t](int64_t) { targets |= (uint32_t)t; }, desc);
     };
 
     app.add_option("input", input, "Input .Shader file / 输入文件")->required();
@@ -49,6 +49,7 @@ int main(int argc, char* argv[])
     addTarget("-l,--hlsl",  Target::HLSL,  "Generate HLSL / 生成HLSL");
     addTarget("-m,--msl",   Target::MSL,   "Generate MSL / 生成MSL");
     addTarget("-s,--spirv", Target::SPIRV, "Generate SPIR-V / 生成SPIR-V");
+    addTarget("-r,--ir",    Target::IR,    "Generate IR / 生成IR");
     addTarget("-j,--json",  Target::JSON,  "Output metadata JSON / 输出元数据JSON");
     addTarget("-a,--all",   Target::All,   "Generate all targets + JSON / 生成全部目标+JSON");
     app.add_flag("-v,--verbose", verbose, "Verbose output / 详细输出");
@@ -106,7 +107,7 @@ int main(int argc, char* argv[])
         for (auto& c : base)
             if (c == '/' || c == '\\') c = '_';
 
-        if (targets & (uint8_t)Target::GLSL)
+        if (targets & (uint32_t)Target::GLSL)
         {
             auto out = compiler.GenerateGLSL(shader, i, defines);
             if (report(out, "GLSL"))
@@ -116,7 +117,7 @@ int main(int argc, char* argv[])
                 spdlog::info("{}.vert.glsl / {}.frag.glsl", base, base);
             }
         }
-        if (targets & (uint8_t)Target::HLSL)
+        if (targets & (uint32_t)Target::HLSL)
         {
             auto out = compiler.GenerateHLSL(shader, i, defines);
             if (report(out, "HLSL"))
@@ -126,7 +127,7 @@ int main(int argc, char* argv[])
                 spdlog::info("{}.vert.hlsl / {}.frag.hlsl", base, base);
             }
         }
-        if (targets & (uint8_t)Target::MSL)
+        if (targets & (uint32_t)Target::MSL)
         {
             auto out = compiler.GenerateMSL(shader, i, defines);
             if (report(out, "MSL"))
@@ -136,7 +137,7 @@ int main(int argc, char* argv[])
                 spdlog::info("{}.vert.metal / {}.frag.metal", base, base);
             }
         }
-        if (targets & (uint8_t)Target::SPIRV)
+        if (targets & (uint32_t)Target::SPIRV)
         {
             auto out = compiler.GenerateSPIRV(shader, i, defines);
             if (report(out, "SPIRV"))
@@ -146,9 +147,19 @@ int main(int argc, char* argv[])
                 spdlog::info("{}.vert.spv / {}.frag.spv", base, base);
             }
         }
+        if (targets & (uint32_t)Target::IR)
+        {
+            auto out = compiler.GenerateIR(shader, i, defines);
+            if (report(out, "IR"))
+            {
+                WriteFile((std::filesystem::path(outputDir) / (base + ".vert.ir")).string(), out.VertexShader);
+                WriteFile((std::filesystem::path(outputDir) / (base + ".frag.ir")).string(), out.FragmentShader);
+                spdlog::info("{}.vert.ir / {}.frag.ir", base, base);
+            }
+        }
     }
 
-    if (targets & (uint8_t)Target::JSON)
+    if (targets & (uint32_t)Target::JSON)
     {
         std::string base = shader.ShaderName;
         for (auto& c : base)

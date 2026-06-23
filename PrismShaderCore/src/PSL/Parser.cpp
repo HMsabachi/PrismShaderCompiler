@@ -506,11 +506,19 @@ void Parser::ParseGLSLBlock(AST::GLSLCode& glsl)
 
     while (!IsAtEnd() && depth > 0)
     {
-        if (Check(TokenType::Hash))
+        if (Check(TokenType::PreprocessDirective))
         {
-            FlushSharedChunk(glsl.SharedSource, sharedStart);
-            ParseGLSLDirective(glsl, nextID++);
-            sharedStart = Current().Offset;
+            std::string dir = TokenStr(Current());
+            if (dir == "#pragma" || dir == "#include")
+            {
+                FlushSharedChunk(glsl.SharedSource, sharedStart);
+                ParseGLSLDirective(glsl, nextID++);
+                sharedStart = Current().Offset;
+            }
+            else
+            {
+                Advance();
+            }
         }
         else if (Check(TokenType::AttributeKw))
         {
@@ -695,33 +703,38 @@ void Parser::ParseGLSLLayout(AST::GLSLCode& glsl, uint32_t id, uint32_t& start)
 
 void Parser::ParseGLSLDirective(AST::GLSLCode& glsl, uint32_t id)
 {
-    glsl.SharedSource += "[Prism::Insert:" + std::to_string(id) + "]";
-    Advance();
+    std::string dir = TokenStr(Advance());
 
-    if (Check(TokenType::IncludeKw))
+    if (dir == "#include")
     {
-        Advance();
         glsl.Includes.push_back({TokenStr(Consume(TokenType::StringLiteral, "期望 include 路径")), id, CurrentLoc()});
+        glsl.SharedSource += "[Prism::Insert:" + std::to_string(id) + "]";
     }
-    else if (Check(TokenType::PragmaKw))
+    else if (dir == "#pragma")
     {
-        Advance();
-
         AST::PragmaDef pragma;
         pragma.InsertID = id;
         pragma.Loc = CurrentLoc();
         if (Check(TokenType::ShaderFeatureKw))
-            { Advance(); pragma.IsShaderFeature = true; }
+        {
+            Advance();
+            pragma.IsShaderFeature = true;
+        }
         else if (Check(TokenType::MultiCompileKw))
-            { Advance(); pragma.IsMultiCompile = true; }
+        {
+            Advance();
+            pragma.IsMultiCompile = true;
+        }
         else
+        {
+            Advance();
             return;
-
+        }
         while (Check(TokenType::Identifier))
             pragma.Keywords.push_back(TokenStr(Advance()));
-
         if (!pragma.Keywords.empty())
             glsl.Pragmas.push_back(pragma);
+        glsl.SharedSource += "[Prism::Insert:" + std::to_string(id) + "]";
     }
 }
 void Parser::FlushSharedChunk(std::string& out, uint32_t& start)

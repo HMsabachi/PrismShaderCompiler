@@ -64,6 +64,10 @@ Shader "Custom/SimplePBR_Animated"
                 attribute ivec4 a_BoneIndices : BONEINDICES;
                 attribute vec4 a_BoneWeights : BONEWEIGHTS;
 
+                #ifdef ALBEDO_MAP
+                attribute vec4 a_Color : COLOR0;
+                #endif
+                
                 layout(location = 0) out vec4 FragColor;
 
 

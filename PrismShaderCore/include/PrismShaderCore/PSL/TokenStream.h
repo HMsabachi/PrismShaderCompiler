@@ -35,6 +35,7 @@ private:
     Token LexNumber();
     Token LexIdent();
     Token LexOperator(char c);
+    Token LexPreprocessDirective();
 
     // 关键字查找
     static TokenType LookupKeyword(const char* str, uint32_t len);
