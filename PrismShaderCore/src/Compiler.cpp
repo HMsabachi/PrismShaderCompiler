@@ -180,7 +180,9 @@ PassOutput ShaderCompiler::GenerateGLSL(const CompiledShader& shader,
     }
     catch (const std::exception& e)
     {
-        out.Errors.push_back(std::string("GLSL cross-compilation failed: ") + e.what());
+        std::string msg = std::string("GLSL cross-compilation failed: ") + e.what();
+        Log::Instance().Error("{}", msg);
+        out.Errors.push_back(std::move(msg));
     }
     return out;
 }
@@ -208,10 +210,15 @@ PassOutput ShaderCompiler::GenerateSPIRV(const CompiledShader& shader,
     out.SpirvVertex = std::move(vsSPV.Bytecode);
     out.SpirvFragment = std::move(fsSPV.Bytecode);
 
-    for (auto& e : vsSPV.Errors) out.Errors.push_back(std::move(e));
-    for (auto& w : vsSPV.Warnings) out.Warnings.push_back(std::move(w));
-    for (auto& e : fsSPV.Errors) out.Errors.push_back(std::move(e));
-    for (auto& w : fsSPV.Warnings) out.Warnings.push_back(std::move(w));
+    auto& log = Log::Instance();
+    std::string shaderId = shader.ShaderName;
+    if (!shaderId.empty()) shaderId = " '" + shaderId + "'";
+    std::string stageSuffix = " (pass " + std::to_string(passIndex) + ")";
+
+    for (auto& e : vsSPV.Errors) { log.Error("VS{}: {}", stageSuffix, e); out.Errors.push_back(std::move(e)); }
+    for (auto& w : vsSPV.Warnings) { log.Warn("VS{}: {}", stageSuffix, w); out.Warnings.push_back(std::move(w)); }
+    for (auto& e : fsSPV.Errors) { log.Error("FS{}: {}", stageSuffix, e); out.Errors.push_back(std::move(e)); }
+    for (auto& w : fsSPV.Warnings) { log.Warn("FS{}: {}", stageSuffix, w); out.Warnings.push_back(std::move(w)); }
 
     return out;
 }
@@ -247,7 +254,9 @@ PassOutput ShaderCompiler::GenerateHLSL(const CompiledShader& shader,
     }
     catch (const std::exception& e)
     {
-        out.Errors.push_back(std::string("HLSL cross-compilation failed: ") + e.what());
+        std::string msg = std::string("HLSL cross-compilation failed: ") + e.what();
+        Log::Instance().Error("{}", msg);
+        out.Errors.push_back(std::move(msg));
     }
     return out;
 }
@@ -264,7 +273,9 @@ PassOutput ShaderCompiler::GenerateMSL(const CompiledShader& shader,
     }
     catch (const std::exception& e)
     {
-        out.Errors.push_back(std::string("MSL cross-compilation failed: ") + e.what());
+        std::string msg = std::string("MSL cross-compilation failed: ") + e.what();
+        Log::Instance().Error("{}", msg);
+        out.Errors.push_back(std::move(msg));
     }
     return out;
 }
