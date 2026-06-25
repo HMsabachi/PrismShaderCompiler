@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Common.h"
 
@@ -17,7 +17,6 @@ public:
     explicit SourceManager(std::string filePath);
     SourceManager(const char* buffer, uint32_t size);
 
-    // 移动：buffer 指针需要更新到新 owner
     SourceManager(SourceManager&& other) noexcept;
     SourceManager& operator=(SourceManager&& other) noexcept;
     SourceManager(const SourceManager&) = delete;

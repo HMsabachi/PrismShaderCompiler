@@ -90,6 +90,7 @@ TokenType TokenStream::LookupKeyword(const char* str, uint32_t len)
         if (CmpN(str, "mat4x4"))   return TokenType::Mat4x4GLSLKw;
         break;
     case 7:
+        if (CmpN(str, "UsePass"))  return TokenType::UsePassKw;
         if (CmpN(str, "Vector2"))  return TokenType::Vector2Kw;
         if (CmpN(str, "Vector3"))  return TokenType::Vector3Kw;
         if (CmpN(str, "Vector4"))  return TokenType::Vector4Kw;

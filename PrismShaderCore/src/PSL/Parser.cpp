@@ -55,6 +55,15 @@ AST::ShaderDocument Parser::ParseShader()
                     doc.Passes.push_back(std::move(pass));
                     Consume(TokenType::RightBrace, "期望 '}'");
                 }
+                else if (Check(TokenType::UsePassKw))
+                {
+                    Advance();
+                    AST::UsePassDef usePass;
+                    usePass.Loc = CurrentLoc();
+                    usePass.ShaderName = TokenStr(Consume(TokenType::StringLiteral, "期望 Shader 名称"));
+                    usePass.PassName = TokenStr(Consume(TokenType::StringLiteral, "期望 Pass 名称"));
+                    doc.UsePasses.push_back(std::move(usePass));
+                }
                 else if (Check(TokenType::RenderCommandKw))
                 {
                     // SubShader
@@ -65,7 +74,7 @@ AST::ShaderDocument Parser::ParseShader()
                 }
                 else
                 {
-                    Error("SubShader 内期望 'Pass' 或 'RenderCommand'");
+                    Error("SubShader 内期望 'Pass', 'UsePass' 或 'RenderCommand'");
                     Advance();
                 }
             }

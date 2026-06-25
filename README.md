@@ -154,7 +154,16 @@ config.OnLog = [](LogLevel lv, const std::string& msg) {
 };
 config.ReadFile = Callbacks::ReadFileFromDisk;
 
-ShaderCompiler compiler(config);
+// UsePass 回调（从 ShaderLibrary 查找或按需加载）
+config.ResolveUsePass = [&lib](const std::string& shaderName) -> CompiledShader {
+    if (lib.Has(shaderName))
+        return lib.Get(shaderName)->GetCompiled();  // 已加载
+    lib.Load("Assets/Shaders/" + shaderName + ".Shader");
+    return lib.Get(shaderName)->GetCompiled();
+};
+
+ShaderCompiler compiler;
+compiler.SetConfig(config);
 
 // 加载 Shader
 auto shader = compiler.CompileFile("path/to/Shader.shader");
@@ -162,7 +171,7 @@ auto shader = compiler.CompileFile("path/to/Shader.shader");
 // 读取元数据
 shader.ShaderName;          // Shader 名称
 shader.Uniforms;            // 属性列表（面板用）
-shader.Passes;              // Pass 信息
+shader.Passes;              // Pass 信息（含 UsePass 深拷贝的 Pass）
 shader.Keywords;            // Variant 关键字 (vector<KeywordDef>，含 IsMultiCompile 标志：true=multi_compile 全量，false=shader_feature 按需)
 shader.MaterialLayout;      // UBO 布局
 shader.RenderState;         // 渲染状态
@@ -172,6 +181,32 @@ std::string json = ToJson(shader);  // JSON 序列化
 PassOutput out = compiler.GenerateGLSL(shader, passIndex, keywords);
 Shader::Create(out.VertexShader, out.FragmentShader);  // OpenGL 编译
 ```
+
+### UsePass 支持
+
+UsePass 允许从其他 Shader 引用 Pass，避免重复代码：
+
+```psl
+Shader "MyShader"
+{
+    SubShader
+    {
+        Pass { GLSL { ... } }
+
+        UsePass "Standard/Forward" "ShadowCaster"  // 复用标准 ShadowCaster
+    }
+}
+```
+
+编译器通过 `ScanShaderDirectory` 静态函数扫描目录建立 ShaderName → FilePath 映射：
+
+```cpp
+// 静态函数：扫描目录下所有 .Shader 文件，解析 Shader "xxx" 头部
+auto shaderMap = ShaderCompiler::ScanShaderDirectory("Assets/Shaders");
+// 返回 unordered_map<string, string>: name → filePath
+```
+
+引擎和 psc CLI 共用此函数建立映射。
 
 ---
 

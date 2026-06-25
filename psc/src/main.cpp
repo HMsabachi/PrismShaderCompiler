@@ -6,6 +6,7 @@
 
 #include <fstream>
 #include <filesystem>
+#include <unordered_map>
 
 namespace psc = PrismShaderCompiler;
 
@@ -79,8 +80,21 @@ int main(int argc, char* argv[])
         }
     };
     config.ReadFile = psc::Callbacks::ReadFileFromDisk;
-
     psc::ShaderCompiler compiler(config);
+    std::filesystem::path scanRoot = std::filesystem::absolute(input).parent_path();
+    auto shaderMap = compiler.ScanShaderDirectory(scanRoot.string());
+    config.ResolveUsePass = [&compiler, &shaderMap](const std::string& shaderName) -> psc::CompiledShader {
+        auto it = shaderMap.find(shaderName);
+        if (it != shaderMap.end())
+        {
+            spdlog::info("UsePass: resolving '{}' -> '{}'", shaderName, it->second);
+            return compiler.CompileFile(it->second);
+        }
+        spdlog::error("UsePass: Shader '{}' not found", shaderName);
+        return {};
+    };
+    compiler.SetConfig(config);
+
     auto shader = compiler.CompileFile(input);
 
     if (shader.Passes.empty())

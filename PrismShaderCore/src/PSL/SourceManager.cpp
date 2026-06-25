@@ -1,4 +1,4 @@
-#include "PSL/SourceManager.h"
+﻿#include "PSL/SourceManager.h"
 
 #include <algorithm>
 #include <fstream>
@@ -26,6 +26,7 @@ SourceManager::SourceManager(std::string filePath)
 
     m_Buffer = m_OwnedBuffer.data();
     m_Size = static_cast<uint32_t>(fileSize);
+    for (auto& c : m_FilePath) if (c == '\\') c = '/';
     BuildLineTable();
 }
 
@@ -76,17 +77,16 @@ void SourceManager::Init(const char* buffer, uint32_t size)
 void SourceManager::BuildLineTable()
 {
     m_LineOffsets.clear();
-    m_LineOffsets.push_back(0); // 第 0 行从 offset 0 开始
+    m_LineOffsets.push_back(0);
 
     for (uint32_t i = 0; i < m_Size; ++i)
         if (m_Buffer[i] == '\n')
-            m_LineOffsets.push_back(i + 1); // 下一行从 \n 之后开始
+            m_LineOffsets.push_back(i + 1);
 }
 
 uint32_t SourceManager::GetLine(uint32_t offset) const
 {
     if (m_LineOffsets.empty()) return 0;
-    // 二分查找：最后一个 <= offset 的换行位置
     auto it = std::upper_bound(m_LineOffsets.begin(), m_LineOffsets.end(), offset);
     return static_cast<uint32_t>(std::distance(m_LineOffsets.begin(), it) - 1);
 }
@@ -94,13 +94,13 @@ uint32_t SourceManager::GetLine(uint32_t offset) const
 uint32_t SourceManager::GetColumn(uint32_t offset) const
 {
     uint32_t line = GetLine(offset);
-    return offset - m_LineOffsets[line] + 1; // 列号从 1 开始
+    return offset - m_LineOffsets[line] + 1;
 }
 
 SourceLocation SourceManager::GetLocation(uint32_t offset) const
 {
     return {
-        GetLine(offset) + 1,    // 行号从 1 开始
+        GetLine(offset) + 1,
         GetColumn(offset),
         offset,
         m_FilePath

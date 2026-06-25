@@ -67,6 +67,7 @@ const char* TokenTypeToString(TokenType type)
     case TokenType::LODKw:             return "'LOD'";
     case TokenType::SubShaderKw:        return "'SubShader'";
     case TokenType::PassKw:             return "'Pass'";
+    case TokenType::UsePassKw:          return "'UsePass'";
     case TokenType::TagsKw:             return "'Tags'";
     case TokenType::NameKw:             return "'Name'";
     case TokenType::GLSLKw:             return "'GLSL'";

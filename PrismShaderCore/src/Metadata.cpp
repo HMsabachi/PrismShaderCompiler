@@ -102,9 +102,8 @@ namespace PrismShaderCompiler
             auto jprs = SerializeRenderState(p.RenderState);
             if (!jprs.empty()) jp["renderState"] = std::move(jprs);
 
-            if (i < shader.PassGLSL.size())
             {
-                auto& glsl = shader.PassGLSL[i];
+                auto& glsl = p.Glsl;
 
                 auto& jattrs = jp["attributes"] = nlohmann::json::array();
                 for (auto& attr : glsl.Attributes)

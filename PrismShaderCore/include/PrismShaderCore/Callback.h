@@ -9,6 +9,9 @@ namespace PrismShaderCompiler
 
 using ReadFileCallback = std::function<std::string(const std::string& path)>;
 
+struct CompiledShader;
+using ResolveUsePassCallback = std::function<CompiledShader(const std::string& shaderName)>;
+
 namespace Callbacks
 {
     inline std::string ReadFileFromDisk(const std::string& path)

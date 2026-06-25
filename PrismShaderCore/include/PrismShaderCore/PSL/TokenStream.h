@@ -43,14 +43,13 @@ private:
     const SourceManager& m_SM;
     DiagnosticCollector* m_Diag;
 
-    const char* m_Ptr;          // 当前位置（SourceManager 的 buffer 内）
+    const char* m_Ptr;          // 当前位置
     uint32_t m_ByteOffset;      // 当前字节偏移
 
     std::vector<Token> m_Buffer;
     size_t m_Pos = 0;
 };
 
-// 按长度比较字符串
 inline bool CmpN(const char* s, const char* lit, uint32_t n) {
     return std::memcmp(s, lit, n) == 0;
 }

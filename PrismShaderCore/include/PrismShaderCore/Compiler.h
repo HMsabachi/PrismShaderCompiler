@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 #include <optional>
+#include <unordered_set>
+#include <unordered_map>
 
 namespace PrismShaderCompiler
 {
@@ -17,6 +19,7 @@ struct PassInfo
     std::string Name;
     std::unordered_map<std::string, std::string> Tags;
     std::optional<PipelineState> RenderState;
+    AST::GLSLCode Glsl;
 };
 
 struct KeywordDef
@@ -35,8 +38,6 @@ struct CompiledShader
     std::vector<KeywordDef> Keywords;
     PropertyLayout MaterialLayout;
     std::optional<PipelineState> RenderState;
-
-    std::vector<AST::GLSLCode> PassGLSL;
 };
 
 struct PassOutput
@@ -51,14 +52,15 @@ struct PassOutput
 
 struct CompilerConfig
 {
-    LogCallback      OnLog    = Callbacks::NullLog;
+    LogCallback OnLog = Callbacks::NullLog;
     ReadFileCallback ReadFile = Callbacks::ReadFileFromDisk;
+    ResolveUsePassCallback ResolveUsePass = nullptr;
 
     std::string IncludeRoot = "Assets/Include";
     std::string EngineRoot  = "Assets/Engine";
 
-    int  GlslVersion      = 450;
-    int  BindingMaterial  = 2;
+    int  GlslVersion = 450;
+    int  BindingMaterial = 2;
     std::string MaterialBlockName = "PrismMaterial";
 
     std::vector<std::string> EngineHeaders = {
@@ -71,6 +73,7 @@ class ShaderCompiler
 {
 public:
     ShaderCompiler(const CompilerConfig& config = {});
+    void SetConfig(const CompilerConfig& config);
 
     CompiledShader Compile(const std::string& source,
                            const std::string& virtualPath = "");
@@ -94,8 +97,11 @@ public:
 
     const CompilerConfig& GetConfig() const { return m_Config; }
 
+    std::unordered_map<std::string, std::string> ScanShaderDirectory(const std::string& searchRoot);
+
 private:
     CompilerConfig m_Config;
+    std::unordered_set<std::string> m_CompileInProgress;
 };
 
 } // namespace PrismShaderCompiler

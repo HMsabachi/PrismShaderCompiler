@@ -111,6 +111,13 @@ struct PassDef
     GLSLCode Glsl;
 };
 
+struct UsePassDef
+{
+    std::string ShaderName;
+    std::string PassName;
+    SourceLocation Loc;
+};
+
 struct ShaderDocument
 {
     std::string ShaderName;
@@ -119,6 +126,7 @@ struct ShaderDocument
     PropertyLayout MaterialLayout;
     std::optional<PipelineState> RenderState;
     std::vector<PassDef> Passes;
+    std::vector<UsePassDef> UsePasses;
 };
 
 } // namespace PrismShaderCompiler::AST

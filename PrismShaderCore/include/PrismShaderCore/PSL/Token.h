@@ -80,6 +80,7 @@ enum class TokenType : uint8_t
     TagsKw,
     NameKw,
     GLSLKw,
+    UsePassKw,
 
     // Property type keywords
     BoolKw,
