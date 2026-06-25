@@ -283,7 +283,11 @@ std::unordered_map<std::string, std::string> ShaderCompiler::ScanShaderDirectory
         stream.Advance();
         auto& tok = stream.Current();
         if (tok.Is(TokenType::StringLiteral))
-            result[tok.ToString(sm)] = std::filesystem::relative(entry.path(), std::filesystem::current_path()).string();
+        {
+            std::string path = std::filesystem::relative(entry.path(), std::filesystem::current_path()).string();
+            for (auto& c : path) if (c == '\\') c = '/';
+            result[tok.ToString(sm)] = std::move(path);
+        }
     }
     return result;
 }
