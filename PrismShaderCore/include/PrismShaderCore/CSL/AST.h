@@ -34,9 +34,9 @@ enum class ImageFormat : uint8_t
 	Unknown,
 
 	// float
-	rgba32f, rgba16f, rgba8,
-	rg32f, rg16f, rg8,
-	r32f, r16f, r8,
+	rgba32f, rgba16f,
+	rg32f, rg16f,
+	r32f, r16f,
 
 	// signed int
 	rgba32i, rgba16i, rgba8i,
@@ -48,8 +48,8 @@ enum class ImageFormat : uint8_t
 	rg32ui, rg16ui, rg8ui,
 	r32ui, r16ui, r8ui,
 
-	// normalized
-	rgba16, rgb10_a2, rgba8_snorm,
+	// unorm / snorm
+	rgba16, rgb10_a2, rgba8, rgba8_snorm,
 	rg16, rg8, rg8_snorm,
 	r16, r8, r8_snorm,
 
