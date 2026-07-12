@@ -167,6 +167,7 @@ const char* TokenTypeToString(TokenType type)
     case TokenType::AtomicUIntGLSLKw:           return "'atomic_uint'";
     case TokenType::ShaderFeatureKw:    return "'shader_feature'";
     case TokenType::MultiCompileKw:     return "'multi_compile'";
+    case TokenType::NumThreadsKw:       return "'numthreads'";
     case TokenType::PreprocessDirective: return "'#directive'";
     case TokenType::TrueKw:             return "'true'";
     case TokenType::FalseKw:            return "'false'";

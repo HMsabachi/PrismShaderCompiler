@@ -199,6 +199,8 @@ enum class TokenType : uint8_t
     ShaderFeatureKw,
     MultiCompileKw,
 
+    NumThreadsKw,
+
     TrueKw,
     FalseKw,
 };
