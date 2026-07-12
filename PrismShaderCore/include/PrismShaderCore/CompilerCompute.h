@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "CSL/AST.h"
 
@@ -11,37 +11,43 @@ namespace PrismShaderCompiler
 
 struct CompiledComputeShader
 {
-	std::string ShaderName;
-	int GlslVersion = 450;
+    std::string ShaderName;
+    int GlslVersion = 450;
 
-	struct KernelInfo
-	{
-		std::string Name;
-		std::vector<std::string> VariantDefines;
-		uint32_t GroupSizeX, GroupSizeY, GroupSizeZ;
-		std::string FunctionSource;
-	};
-	std::vector<KernelInfo> Kernels;
+    struct KernelInfo
+    {
+        std::string Name;
+        std::vector<std::string> VariantDefines;
+        uint32_t GroupSizeX, GroupSizeY, GroupSizeZ;
+        std::string FunctionSource;
 
-	std::vector<CSL::ComputeResource> Resources;
-	std::vector<CSL::ComputeUniform> Uniforms;
+        SourceLocation DeclLoc;
+        SourceLocation DefLoc;
+        uint32_t DeclInsertID = 0;
+        uint32_t DefInsertID = 0;
+    };
+    std::vector<KernelInfo> Kernels;
 
-	struct BindingInfo
-	{
-		uint32_t Set;
-		uint32_t Binding;
-		std::string Name;
-		CSL::ResourceKind Kind;
-	};
-	std::vector<BindingInfo> Bindings;
+    std::string SharedSource;
+    std::vector<CSL::ComputeResource> Resources;
+    std::vector<CSL::ComputeUniform> Uniforms;
+
+    struct BindingInfo
+    {
+        uint32_t Set;
+        uint32_t Binding;
+        std::string Name;
+        CSL::ResourceKind Kind;
+    };
+    std::vector<BindingInfo> Bindings;
 };
 
 struct ComputeKernelOutput
 {
-	std::string Source;
-	std::vector<uint32_t> Spirv;
-	std::vector<std::string> Errors;
-	std::vector<std::string> Warnings;
+    std::string Source;
+    std::vector<uint32_t> Spirv;
+    std::vector<std::string> Errors;
+    std::vector<std::string> Warnings;
 };
 
 } // namespace PrismShaderCompiler

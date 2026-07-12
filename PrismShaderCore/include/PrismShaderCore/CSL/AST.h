@@ -74,7 +74,7 @@ struct ComputeResource
 
 struct ComputeUniform
 {
-	GLSLType Type;
+    GLSLType Type;
 	std::string Name;
 	SourceLocation Loc;
 };
