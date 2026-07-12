@@ -249,15 +249,16 @@ namespace PrismShaderCompiler::CSL
             decl.Loc = CurrentLoc();
             decl.Name = TokenStr(Consume(TokenType::Identifier, "期望 kernel 名称"));
 
-            while (Check(TokenType::Identifier))
+            uint32_t declLine = CurrentLoc().Line;
+            while (Check(TokenType::Identifier) && CurrentLoc().Line == declLine)
                 decl.VariantDefines.push_back(TokenStr(Advance()));
 
             doc.KernelDecls.push_back(std::move(decl));
         }
         else
         {
-            while (!IsAtEnd() && !Check(TokenType::PreprocessDirective)
-                && Current().Type != TokenType::EndOfFile)
+            uint32_t line = CurrentLoc().Line;
+            while (!IsAtEnd() && CurrentLoc().Line == line)
                 Advance();
         }
 

@@ -739,7 +739,8 @@ void Parser::ParseGLSLDirective(AST::GLSLCode& glsl, uint32_t id)
             Advance();
             return;
         }
-        while (Check(TokenType::Identifier))
+        uint32_t pragmaLine = CurrentLoc().Line;
+        while (Check(TokenType::Identifier) && CurrentLoc().Line == pragmaLine)
             pragma.Keywords.push_back(TokenStr(Advance()));
         if (!pragma.Keywords.empty())
             glsl.Pragmas.push_back(pragma);
