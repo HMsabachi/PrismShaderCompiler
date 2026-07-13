@@ -8,6 +8,8 @@
 #include "Generator/GLSLGenerator.h"
 #include "Generator/HLSLGenerator.h"
 #include "Generator/MSLGenerator.h"
+#include "Generator/ComputeIRGenerator.h"
+#include "CSL/Parser.h"
 #include <algorithm>
 #include <exception>
 #include <fstream>
@@ -301,6 +303,93 @@ std::unordered_map<std::string, std::string> ShaderCompiler::ScanShaderDirectory
         }
     }
     return result;
+}
+
+CompiledComputeShader ShaderCompiler::CompileCompute(const std::string& source,
+                                                     const std::string& virtualPath)
+{
+    CompiledComputeShader result;
+
+    DiagnosticCollector diag;
+    SourceManager sm(source.c_str(), static_cast<uint32_t>(source.size()));
+    sm.SetFilePath(virtualPath);
+
+    if (!sm.IsValid())
+    {
+        Log::Instance().Error("SourceManager failed for '{}'", virtualPath);
+        return result;
+    }
+
+    TokenStream stream(sm, &diag);
+    CSL::Parser parser(stream, &diag);
+    auto doc = parser.ParseComputeShader();
+
+    if (diag.HasErrors())
+    {
+        diag.PrintAll();
+        return result;
+    }
+
+    result.GlslVersion = doc.GlslVersion;
+    result.SharedSource = std::move(doc.SharedSource);
+    result.Resources = std::move(doc.Resources);
+    result.Uniforms = std::move(doc.Uniforms);
+
+    if (!virtualPath.empty())
+        result.ShaderName = std::filesystem::path(virtualPath).stem().string();
+
+    for (auto& def : doc.Kernels)
+    {
+        CompiledComputeShader::KernelInfo ki;
+        ki.Name = def.Name;
+        ki.GroupSizeX = def.GroupSizeX;
+        ki.GroupSizeY = def.GroupSizeY;
+        ki.GroupSizeZ = def.GroupSizeZ;
+        ki.FunctionSource = std::move(def.FunctionSource);
+        ki.DefLoc = def.Loc;
+        ki.DefInsertID = def.InsertID;
+
+        auto declIt = std::find_if(doc.KernelDecls.begin(), doc.KernelDecls.end(),
+            [&](const CSL::KernelDecl& d) { return d.Name == def.Name; });
+        if (declIt != doc.KernelDecls.end())
+        {
+            ki.VariantDefines = declIt->VariantDefines;
+            ki.DeclLoc = declIt->Loc;
+            ki.DeclInsertID = declIt->InsertID;
+        }
+
+        result.Kernels.push_back(std::move(ki));
+    }
+
+    return result;
+}
+
+CompiledComputeShader ShaderCompiler::CompileComputeFile(const std::string& filePath)
+{
+    std::string source = m_Config.ReadFile(filePath);
+    if (source.empty())
+    {
+        Log::Instance().Error("Failed to read '{}'", filePath);
+        return {};
+    }
+    return CompileCompute(source, filePath);
+}
+
+ComputeKernelOutput ShaderCompiler::GenerateComputeIR(const CompiledComputeShader& shader,
+                                                      uint32_t kernelIndex)
+{
+    ComputeKernelOutput out;
+    if (kernelIndex >= shader.Kernels.size())
+    {
+        Log::Instance().Error("Compute kernel index {} out of range ({} kernels)",
+            kernelIndex, shader.Kernels.size());
+        return out;
+    }
+
+    ComputeIRGen::SetConfig(m_Config);
+    auto ir = ComputeIRGen::Generate(shader, kernelIndex);
+    out.Source = std::move(ir.Source);
+    return out;
 }
 
 }

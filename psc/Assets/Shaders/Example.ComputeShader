@@ -1,0 +1,36 @@
+#version 450
+
+#pragma kernel ClearImage
+#pragma kernel CopyImage
+
+layout(rgba16f, binding = 0) uniform image2D o_Result;
+layout(binding = 1) uniform sampler2D u_Input;
+
+layout(location = 0) uniform vec4 u_ClearColor;
+layout(location = 1) uniform float u_Scale;
+
+vec4 sampleInput(vec2 uv)
+{
+    return texture(u_Input, uv) * u_Scale;
+}
+
+[numthreads(8, 8, 1)]
+void ClearImage()
+{
+    ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 size = imageSize(o_Result);
+    if (coord.x >= size.x || coord.y >= size.y)
+        return;
+    imageStore(o_Result, coord, u_ClearColor);
+}
+
+[numthreads(8, 8, 1)]
+void CopyImage()
+{
+    ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 size = imageSize(o_Result);
+    if (coord.x >= size.x || coord.y >= size.y)
+        return;
+    vec2 uv = vec2(coord) / vec2(size);
+    imageStore(o_Result, coord, sampleInput(uv));
+}

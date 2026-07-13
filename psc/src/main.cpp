@@ -95,6 +95,38 @@ int main(int argc, char* argv[])
     };
     compiler.SetConfig(config);
 
+    std::filesystem::path inputPath(input);
+    if (inputPath.extension() == ".ComputeShader")
+    {
+        auto compute = compiler.CompileComputeFile(input);
+        if (compute.Kernels.empty())
+        {
+            spdlog::error("compilation failed: no kernels generated");
+            return 1;
+        }
+        std::filesystem::create_directories(outputDir);
+        if (targets == 0) targets |= (uint32_t)Target::IR;
+
+        if (targets & (uint32_t)Target::IR)
+        {
+            for (uint32_t i = 0; i < compute.Kernels.size(); ++i)
+            {
+                auto out = compiler.GenerateComputeIR(compute, i);
+                for (auto& e : out.Errors)   spdlog::error("[IR] {}", e);
+                for (auto& w : out.Warnings) spdlog::warn("[IR] {}", w);
+                if (!out.Errors.empty()) continue;
+
+                std::string base = compute.ShaderName + "." + compute.Kernels[i].Name;
+                for (auto& c : base)
+                    if (c == '/' || c == '\\') c = '_';
+                WriteFile((std::filesystem::path(outputDir) / (base + ".comp.ir")).string(), out.Source);
+                spdlog::info("{}.comp.ir", base);
+            }
+        }
+        spdlog::info("done: {} kernel(s)", compute.Kernels.size());
+        return 0;
+    }
+
     auto shader = compiler.CompileFile(input);
 
     if (shader.Passes.empty())
