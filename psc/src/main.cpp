@@ -116,6 +116,7 @@ static int EmitCompute(psc::ShaderCompiler& compiler, const std::string& input,
             if (!(targets & (uint32_t)spec.flag)) continue;
             auto out = (compiler.*spec.gen)(compute, i);
             if (!ReportDiag(out, spec.name)) continue;
+            if (spec.binary ? out.Spirv.empty() : out.Source.empty()) continue;
             auto path = std::filesystem::path(outputDir) / (base + spec.ext);
             if (spec.binary)
                 WriteBinaryFile(path.string(), out.Spirv);
@@ -166,6 +167,7 @@ static int EmitShader(psc::ShaderCompiler& compiler, const std::string& input,
             if (!(targets & (uint32_t)spec.flag)) continue;
             auto out = (compiler.*spec.gen)(shader, i, defines);
             if (!ReportDiag(out, spec.name)) continue;
+            if (spec.binary ? (out.SpirvVertex.empty() || out.SpirvFragment.empty()) : (out.VertexShader.empty() || out.FragmentShader.empty())) continue;
             auto dir = std::filesystem::path(outputDir);
             if (spec.binary)
             {

@@ -183,8 +183,7 @@ PassOutput ShaderCompiler::GenerateGLSL(const CompiledShader& shader,
     catch (const std::exception& e)
     {
         std::string msg = std::string("GLSL cross-compilation failed: ") + e.what();
-        Log::Instance().Error("{}", msg);
-        out.Errors.push_back(std::move(msg));
+        out.Warnings.push_back(std::move(msg));
     }
     return out;
 }
@@ -257,8 +256,7 @@ PassOutput ShaderCompiler::GenerateHLSL(const CompiledShader& shader,
     catch (const std::exception& e)
     {
         std::string msg = std::string("HLSL cross-compilation failed: ") + e.what();
-        Log::Instance().Error("{}", msg);
-        out.Errors.push_back(std::move(msg));
+        out.Warnings.push_back(std::move(msg));
     }
     return out;
 }
@@ -276,8 +274,7 @@ PassOutput ShaderCompiler::GenerateMSL(const CompiledShader& shader,
     catch (const std::exception& e)
     {
         std::string msg = std::string("MSL cross-compilation failed: ") + e.what();
-        Log::Instance().Error("{}", msg);
-        out.Errors.push_back(std::move(msg));
+        out.Warnings.push_back(std::move(msg));
     }
     return out;
 }
@@ -443,8 +440,7 @@ ComputeKernelOutput ShaderCompiler::GenerateComputeGLSL(const CompiledComputeSha
         catch (const std::exception& e)
         {
             std::string msg = std::string("GLSL cross-compilation failed: ") + e.what();
-            Log::Instance().Error("{}", msg);
-            out.Errors.push_back(std::move(msg));
+            out.Warnings.push_back(std::move(msg));
         }
     }
     return out;
@@ -463,8 +459,7 @@ ComputeKernelOutput ShaderCompiler::GenerateComputeHLSL(const CompiledComputeSha
         catch (const std::exception& e)
         {
             std::string msg = std::string("HLSL cross-compilation failed: ") + e.what();
-            Log::Instance().Error("{}", msg);
-            out.Errors.push_back(std::move(msg));
+            out.Warnings.push_back(std::move(msg));
         }
     }
     return out;
@@ -483,8 +478,7 @@ ComputeKernelOutput ShaderCompiler::GenerateComputeMSL(const CompiledComputeShad
         catch (const std::exception& e)
         {
             std::string msg = std::string("MSL cross-compilation failed: ") + e.what();
-            Log::Instance().Error("{}", msg);
-            out.Errors.push_back(std::move(msg));
+            out.Warnings.push_back(std::move(msg));
         }
     }
     return out;

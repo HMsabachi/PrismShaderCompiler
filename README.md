@@ -2,6 +2,10 @@
 
 Prism 着色器编译器，将 PSL (Prism Shader Language) 编译为 GLSL / HLSL / MSL / SPIR-V 并输出反射数据。
 
+支持两种输入资产：
+- **PSL** (`.Shader`) - 图形着色器（Vertex + Fragment），详见 [docs/PSL-Syntax.md](docs/PSL-Syntax.md)
+- **CSL** (`.ComputeShader`) - 计算着色器（Compute Kernel），详见 [docs/CSL-Syntax.md](docs/CSL-Syntax.md)
+
 ---
 
 ## 构建
@@ -34,6 +38,9 @@ psc PBR.Shader -o build/
 
 # 指定搜索路径
 psc PBR.Shader -I Assets/Include -E Assets/Engine
+
+# 编译计算着色器（按扩展名自动识别）
+psc Environment.ComputeShader -o output -a
 ```
 
 ### 目标语言
@@ -59,6 +66,15 @@ psc PBR.Shader -a            # 全部目标 + JSON
 
 ```bash
 psc PBR.Shader -D ALBEDO_MAP -D NORMAL_MAP
+```
+
+### 计算着色器（多 Kernel）
+
+`.ComputeShader` 文件可声明多个 kernel，每个 kernel 输出一组文件，按 kernel 名分文件：
+
+```bash
+psc Environment.ComputeShader -a          # 全部目标，3 个 kernel 各输出一份
+psc Environment.ComputeShader -s          # 仅 SPIR-V
 ```
 
 ### 查看帮助
@@ -116,7 +132,27 @@ Shader "MyShader"
 }
 ```
 
----
+CSL (Compute Shader Language) 文件 - `.ComputeShader` 扩展名：
+
+```glsl
+#version 450
+
+#pragma kernel CSEquirectToCube
+#pragma kernel CSIrradiance
+
+layout(binding = 0) uniform sampler2D u_InputTex;
+layout(rgba16f, binding = 2) uniform imageCube o_OutputCube;
+
+layout(location = 0) uniform float u_Roughness;
+
+[numthreads(32, 32, 1)]
+void CSEquirectToCube()
+{
+    // ... kernel body ...
+}
+```
+
+详细语法见 [docs/CSL-Syntax.md](docs/CSL-Syntax.md)。
 
 ---
 
@@ -212,6 +248,8 @@ auto shaderMap = ShaderCompiler::ScanShaderDirectory("Assets/Shaders");
 
 ## 输出文件
 
+### 图形着色器（`.Shader`，按 Pass 分文件）
+
 | 目标 | 文件 |
 |------|------|
 | GLSL | `ShaderName.vert`, `ShaderName.frag` |
@@ -219,3 +257,14 @@ auto shaderMap = ShaderCompiler::ScanShaderDirectory("Assets/Shaders");
 | MSL | `ShaderName.vert.metal`, `ShaderName.frag.metal` |
 | SPIR-V | `ShaderName.vert.spv`, `ShaderName.frag.spv` |
 | JSON | `ShaderName.meta.json` |
+
+### 计算着色器（`.ComputeShader`，按 Kernel 分文件）
+
+| 目标 | 文件 |
+|------|------|
+| IR | `ShaderName.KernelName.comp.ir` |
+| SPIR-V | `ShaderName.KernelName.comp.spv` |
+| GLSL | `ShaderName.KernelName.comp.glsl` |
+| HLSL | `ShaderName.KernelName.comp.hlsl` |
+| MSL | `ShaderName.KernelName.comp.metal` |
+| JSON | `ShaderName.meta.json`（全局元数据，非 per-kernel） |
