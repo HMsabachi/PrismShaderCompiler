@@ -277,44 +277,39 @@ namespace PrismShaderCompiler::CSL
 
         while (!Check(TokenType::RightParen) && !IsAtEnd())
         {
-            if (Check(TokenType::Identifier))
+            if (Check(TokenType::Comma))
             {
-                std::string qual = TokenStr(Current());
-                if (qual == "std140" || qual == "std430")
-                {
-                    Advance();
-                }
-                else if (qual == "binding")
-                {
-                    Advance();
-                    Consume(TokenType::Equals, "期望 '='");
-                    res.Binding = (uint32_t)TokenInt(ConsumeNumber("期望 binding 值"));
-                }
-                else if (qual == "set")
-                {
-                    Advance();
-                    Consume(TokenType::Equals, "期望 '='");
-                    res.Set = (uint32_t)TokenInt(ConsumeNumber("期望 set 值"));
-                }
-                else if (qual == "location")
-                {
-                    Advance();
-                    Consume(TokenType::Equals, "期望 '='");
-                    location = (uint32_t)TokenInt(ConsumeNumber("期望 location 值"));
-                    hasLocation = true;
-                }
-                else
-                {
-                    res.Format = ParseImageFormat(qual);
-                    Advance();
-                }
+                Advance();
+                continue;
             }
-            else if (Check(TokenType::Comma))
+            std::string qual = TokenStr(Current());
+            if (qual == "std140" || qual == "std430")
             {
                 Advance();
             }
+            else if (qual == "binding")
+            {
+                Advance();
+                Consume(TokenType::Equals, "期望 '='");
+                res.Binding = (uint32_t)TokenInt(ConsumeNumber("期望 binding 值"));
+            }
+            else if (qual == "set")
+            {
+                Advance();
+                Consume(TokenType::Equals, "期望 '='");
+                res.Set = (uint32_t)TokenInt(ConsumeNumber("期望 set 值"));
+            }
+            else if (qual == "location")
+            {
+                Advance();
+                Consume(TokenType::Equals, "期望 '='");
+                location = (uint32_t)TokenInt(ConsumeNumber("期望 location 值"));
+                hasLocation = true;
+            }
             else
             {
+                res.Format = ParseImageFormat(qual);
+                if (res.Format == ImageFormat::Unknown) Error("未知的 image format: " + qual);
                 Advance();
             }
         }
