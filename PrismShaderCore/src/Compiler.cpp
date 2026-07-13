@@ -361,6 +361,16 @@ CompiledComputeShader ShaderCompiler::CompileCompute(const std::string& source,
         result.Kernels.push_back(std::move(ki));
     }
 
+    for (const auto& res : result.Resources)
+    {
+        CompiledComputeShader::BindingInfo bi;
+        bi.Set = res.Set;
+        bi.Binding = res.Binding;
+        bi.Name = res.Name;
+        bi.Kind = res.Kind;
+        result.Bindings.push_back(std::move(bi));
+    }
+
     return result;
 }
 
@@ -389,6 +399,91 @@ ComputeKernelOutput ShaderCompiler::GenerateComputeIR(const CompiledComputeShade
     ComputeIRGen::SetConfig(m_Config);
     auto ir = ComputeIRGen::Generate(shader, kernelIndex);
     out.Source = std::move(ir.Source);
+    return out;
+}
+
+ComputeKernelOutput ShaderCompiler::GenerateComputeSPIRV(const CompiledComputeShader& shader,
+                                                        uint32_t kernelIndex)
+{
+    ComputeKernelOutput out;
+    if (kernelIndex >= shader.Kernels.size())
+    {
+        Log::Instance().Error("Compute kernel index {} out of range ({} kernels)",
+            kernelIndex, shader.Kernels.size());
+        return out;
+    }
+
+    auto ir = GenerateComputeIR(shader, kernelIndex);
+    if (ir.Source.empty())
+    {
+        out.Errors = std::move(ir.Errors);
+        return out;
+    }
+
+    auto spv = CompileGLSL(ir.Source, ShaderStageType::Compute);
+    out.Spirv = std::move(spv.Bytecode);
+    out.Errors = std::move(spv.Errors);
+    out.Warnings = std::move(spv.Warnings);
+    return out;
+}
+
+ComputeKernelOutput ShaderCompiler::GenerateComputeGLSL(const CompiledComputeShader& shader,
+                                                        uint32_t kernelIndex)
+{
+    auto out = GenerateComputeSPIRV(shader, kernelIndex);
+    if (!out.Spirv.empty())
+    {
+        try
+        {
+            out.Source = DecompileSPIRV(out.Spirv);
+        }
+        catch (const std::exception& e)
+        {
+            std::string msg = std::string("GLSL cross-compilation failed: ") + e.what();
+            Log::Instance().Error("{}", msg);
+            out.Errors.push_back(std::move(msg));
+        }
+    }
+    return out;
+}
+
+ComputeKernelOutput ShaderCompiler::GenerateComputeHLSL(const CompiledComputeShader& shader,
+                                                        uint32_t kernelIndex)
+{
+    auto out = GenerateComputeSPIRV(shader, kernelIndex);
+    if (!out.Spirv.empty())
+    {
+        try
+        {
+            out.Source = DecompileHLSL(out.Spirv);
+        }
+        catch (const std::exception& e)
+        {
+            std::string msg = std::string("HLSL cross-compilation failed: ") + e.what();
+            Log::Instance().Error("{}", msg);
+            out.Errors.push_back(std::move(msg));
+        }
+    }
+    return out;
+}
+
+ComputeKernelOutput ShaderCompiler::GenerateComputeMSL(const CompiledComputeShader& shader,
+                                                       uint32_t kernelIndex)
+{
+    auto out = GenerateComputeSPIRV(shader, kernelIndex);
+    if (!out.Spirv.empty())
+    {
+        try
+        {
+            out.Source = DecompileMSL(out.Spirv);
+        }
+        catch (const std::exception& e)
+        {
+            std::string msg = std::string("MSL cross-compilation failed: ") + e.what();
+            Log::Instance().Error("{}", msg);
+            out.Errors.push_back(std::move(msg));
+        }
+    }
     return out;
 }
 

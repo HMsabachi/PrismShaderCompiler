@@ -22,5 +22,6 @@ struct GlslOutput
 };
 
 GlslOutput PSC_API DecompileSPIRV(const SpirvEntry& spirv);
+std::string PSC_API DecompileSPIRV(const std::vector<uint32_t>& spirv);
 
 } // namespace PrismShaderCompiler

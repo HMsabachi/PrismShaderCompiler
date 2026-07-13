@@ -121,22 +121,75 @@ int main(int argc, char* argv[])
         std::filesystem::create_directories(outputDir);
         if (targets == 0) targets |= (uint32_t)Target::IR;
 
-        if (targets & (uint32_t)Target::IR)
+        auto report = [](const psc::ComputeKernelOutput& out, const std::string& target) {
+            for (auto& e : out.Errors)   spdlog::error("[{}] {}", target, e);
+            for (auto& w : out.Warnings) spdlog::warn("[{}] {}", target, w);
+            return out.Errors.empty();
+        };
+
+        for (uint32_t i = 0; i < compute.Kernels.size(); ++i)
         {
-            for (uint32_t i = 0; i < compute.Kernels.size(); ++i)
+            std::string base = compute.ShaderName + "." + compute.Kernels[i].Name;
+            for (auto& c : base)
+                if (c == '/' || c == '\\') c = '_';
+
+            if (targets & (uint32_t)Target::IR)
             {
                 auto out = compiler.GenerateComputeIR(compute, i);
-                for (auto& e : out.Errors)   spdlog::error("[IR] {}", e);
-                for (auto& w : out.Warnings) spdlog::warn("[IR] {}", w);
-                if (!out.Errors.empty()) continue;
-
-                std::string base = compute.ShaderName + "." + compute.Kernels[i].Name;
-                for (auto& c : base)
-                    if (c == '/' || c == '\\') c = '_';
-                WriteFile((std::filesystem::path(outputDir) / (base + ".comp.ir")).string(), out.Source);
-                spdlog::info("{}.comp.ir", base);
+                if (report(out, "IR"))
+                {
+                    WriteFile((std::filesystem::path(outputDir) / (base + ".comp.ir")).string(), out.Source);
+                    spdlog::info("{}.comp.ir", base);
+                }
+            }
+            if (targets & (uint32_t)Target::SPIRV)
+            {
+                auto out = compiler.GenerateComputeSPIRV(compute, i);
+                if (report(out, "SPIRV"))
+                {
+                    WriteBinaryFile((std::filesystem::path(outputDir) / (base + ".comp.spv")).string(), out.Spirv);
+                    spdlog::info("{}.comp.spv", base);
+                }
+            }
+            if (targets & (uint32_t)Target::GLSL)
+            {
+                auto out = compiler.GenerateComputeGLSL(compute, i);
+                if (report(out, "GLSL"))
+                {
+                    WriteFile((std::filesystem::path(outputDir) / (base + ".comp.glsl")).string(), out.Source);
+                    spdlog::info("{}.comp.glsl", base);
+                }
+            }
+            if (targets & (uint32_t)Target::HLSL)
+            {
+                auto out = compiler.GenerateComputeHLSL(compute, i);
+                if (report(out, "HLSL"))
+                {
+                    WriteFile((std::filesystem::path(outputDir) / (base + ".comp.hlsl")).string(), out.Source);
+                    spdlog::info("{}.comp.hlsl", base);
+                }
+            }
+            if (targets & (uint32_t)Target::MSL)
+            {
+                auto out = compiler.GenerateComputeMSL(compute, i);
+                if (report(out, "MSL"))
+                {
+                    WriteFile((std::filesystem::path(outputDir) / (base + ".comp.metal")).string(), out.Source);
+                    spdlog::info("{}.comp.metal", base);
+                }
             }
         }
+
+        if (targets & (uint32_t)Target::JSON)
+        {
+            std::string base = compute.ShaderName;
+            for (auto& c : base)
+                if (c == '/' || c == '\\') c = '_';
+            auto jsonPath = std::filesystem::path(outputDir) / (base + ".meta.json");
+            WriteFile(jsonPath.string(), psc::ToJson(compute));
+            spdlog::info("{}.meta.json", base);
+        }
+
         spdlog::info("done: {} kernel(s)", compute.Kernels.size());
         return 0;
     }

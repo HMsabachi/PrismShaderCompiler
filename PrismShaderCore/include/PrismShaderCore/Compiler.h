@@ -102,6 +102,14 @@ public:
 
     ComputeKernelOutput GenerateComputeIR(const CompiledComputeShader& shader,
                                            uint32_t kernelIndex);
+    ComputeKernelOutput GenerateComputeSPIRV(const CompiledComputeShader& shader,
+                                              uint32_t kernelIndex);
+    ComputeKernelOutput GenerateComputeGLSL(const CompiledComputeShader& shader,
+                                             uint32_t kernelIndex);
+    ComputeKernelOutput GenerateComputeHLSL(const CompiledComputeShader& shader,
+                                             uint32_t kernelIndex);
+    ComputeKernelOutput GenerateComputeMSL(const CompiledComputeShader& shader,
+                                            uint32_t kernelIndex);
 
     const CompilerConfig& GetConfig() const { return m_Config; }
 
