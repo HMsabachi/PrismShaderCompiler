@@ -416,8 +416,6 @@ namespace PrismShaderCompiler::CSL
     void Parser::ParseKernel(ComputeDocument& doc, uint32_t& sharedStart)
     {
         FlushSharedChunk(doc.SharedSource, sharedStart);
-        uint32_t id = m_NextInsertID++;
-        doc.SharedSource += "[Prism::Insert:" + std::to_string(id) + "]";
 
         Consume(TokenType::LeftBracket, "期望 '['");
         Consume(TokenType::NumThreadsKw, "期望 'numthreads'");
@@ -442,13 +440,11 @@ namespace PrismShaderCompiler::CSL
         auto declIt = std::find_if(doc.KernelDecls.begin(), doc.KernelDecls.end(),
             [&](const KernelDecl& d) { return d.Name == kernelName; });
 
-        if (declIt == doc.KernelDecls.end())
-        {
+        bool hasDecl = declIt != doc.KernelDecls.end();
+        if (!hasDecl)
             Error("kernel '" + kernelName + "' 未在 #pragma kernel 中声明");
-        }
 
         KernelDef def;
-        def.InsertID = id;
         def.Name = kernelName;
         def.GroupSizeX = x;
         def.GroupSizeY = y;
@@ -468,17 +464,27 @@ namespace PrismShaderCompiler::CSL
                 funcDepth--;
                 if (funcDepth == 0)
                 {
-                    uint32_t bodyStart = openBrace.Offset + openBrace.Length;
-                    uint32_t bodyLen = ft.Offset - bodyStart;
-                    def.FunctionSource = std::string(m_Stream.GetSM().GetView(bodyStart, bodyLen));
+                    if (hasDecl)
+                    {
+                        uint32_t bodyStart = openBrace.Offset + openBrace.Length;
+                        uint32_t bodyLen = ft.Offset - bodyStart;
+                        def.FunctionSource = std::string(m_Stream.GetSM().GetView(bodyStart, bodyLen));
+                    }
                     break;
                 }
             }
         }
 
         def.AfterLoc = CurrentLoc();
-        doc.Kernels.push_back(std::move(def));
         sharedStart = Current().Offset;
+
+        if (!hasDecl)
+            return;
+
+        uint32_t id = m_NextInsertID++;
+        doc.SharedSource += "[Prism::Insert:" + std::to_string(id) + "]";
+        def.InsertID = id;
+        doc.Kernels.push_back(std::move(def));
     }
 
 } // namespace PrismShaderCompiler::CSL
