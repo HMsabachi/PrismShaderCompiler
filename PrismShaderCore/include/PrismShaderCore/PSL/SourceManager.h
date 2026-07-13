@@ -30,6 +30,8 @@ public:
     SourceLocation GetLocation(uint32_t offset) const;
 
     std::string_view GetView(uint32_t offset, uint32_t length) const;
+    // 返回 offset 所在整行文本（不含行尾换行）
+    std::string_view GetLineText(uint32_t offset) const;
     const char* GetBuffer() const { return m_Buffer; }
     uint32_t GetSize() const { return m_Size; }
     const std::string& GetFilePath() const { return m_FilePath; }

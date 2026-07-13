@@ -124,11 +124,11 @@ SourceLocation Parser::CurrentLoc()
 void Parser::Error(const std::string& msg)
 {
     auto loc = CurrentLoc();
-    std::string_view code = m_Stream.GetSM().GetView(Current().Offset, Current().Length);
-    if (m_Diag) m_Diag->Error(msg, loc, std::string(code));
+    uint32_t tokLen = Current().Length;
+    std::string lineText(m_Stream.GetSM().GetLineText(Current().Offset));
+    if (m_Diag) m_Diag->Error(msg, loc, lineText);
     auto& log = PrismShaderCompiler::Log::Instance();
-    log.Error("{}:{} {}", loc.Column, loc.Line, msg);
-    log.Error("    --> '{}'", code);
+    log.Error("{}", FormatDiagnostic(Severity::Error, loc, msg, lineText, tokLen));
 }
 
 Token Parser::ConsumeType(const std::string& errMsg)
@@ -739,7 +739,8 @@ void Parser::ParseGLSLDirective(AST::GLSLCode& glsl, uint32_t id)
             Advance();
             return;
         }
-        while (Check(TokenType::Identifier))
+        uint32_t pragmaLine = CurrentLoc().Line;
+        while (Check(TokenType::Identifier) && CurrentLoc().Line == pragmaLine)
             pragma.Keywords.push_back(TokenStr(Advance()));
         if (!pragma.Keywords.empty())
             glsl.Pragmas.push_back(pragma);

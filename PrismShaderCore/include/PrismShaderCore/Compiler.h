@@ -3,6 +3,7 @@
 #include "Log.h"
 #include "Callback.h"
 #include "PSL/AST.h"
+#include "CompilerCompute.h"
 #include "Pipeline/PipelineState.h"
 
 #include <string>
@@ -79,6 +80,10 @@ public:
                            const std::string& virtualPath = "");
     CompiledShader CompileFile(const std::string& filePath);
 
+    CompiledComputeShader CompileCompute(const std::string& source,
+                                         const std::string& virtualPath = "");
+    CompiledComputeShader CompileComputeFile(const std::string& filePath);
+
     PassOutput GenerateGLSL(const CompiledShader& shader,
                              uint32_t passIndex,
                              const std::vector<std::string>& keywords = {});
@@ -94,6 +99,17 @@ public:
     PassOutput GenerateIR(const CompiledShader& shader,
                             uint32_t passIndex,
                             const std::vector<std::string>& keywords = {});
+
+    ComputeKernelOutput GenerateComputeIR(const CompiledComputeShader& shader,
+                                           uint32_t kernelIndex);
+    ComputeKernelOutput GenerateComputeSPIRV(const CompiledComputeShader& shader,
+                                              uint32_t kernelIndex);
+    ComputeKernelOutput GenerateComputeGLSL(const CompiledComputeShader& shader,
+                                             uint32_t kernelIndex);
+    ComputeKernelOutput GenerateComputeHLSL(const CompiledComputeShader& shader,
+                                             uint32_t kernelIndex);
+    ComputeKernelOutput GenerateComputeMSL(const CompiledComputeShader& shader,
+                                            uint32_t kernelIndex);
 
     const CompilerConfig& GetConfig() const { return m_Config; }
 

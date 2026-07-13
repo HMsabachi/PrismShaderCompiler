@@ -8,6 +8,8 @@
 #include "Generator/GLSLGenerator.h"
 #include "Generator/HLSLGenerator.h"
 #include "Generator/MSLGenerator.h"
+#include "Generator/ComputeIRGenerator.h"
+#include "CSL/Parser.h"
 #include <algorithm>
 #include <exception>
 #include <fstream>
@@ -181,8 +183,7 @@ PassOutput ShaderCompiler::GenerateGLSL(const CompiledShader& shader,
     catch (const std::exception& e)
     {
         std::string msg = std::string("GLSL cross-compilation failed: ") + e.what();
-        Log::Instance().Error("{}", msg);
-        out.Errors.push_back(std::move(msg));
+        out.Warnings.push_back(std::move(msg));
     }
     return out;
 }
@@ -255,8 +256,7 @@ PassOutput ShaderCompiler::GenerateHLSL(const CompiledShader& shader,
     catch (const std::exception& e)
     {
         std::string msg = std::string("HLSL cross-compilation failed: ") + e.what();
-        Log::Instance().Error("{}", msg);
-        out.Errors.push_back(std::move(msg));
+        out.Warnings.push_back(std::move(msg));
     }
     return out;
 }
@@ -274,8 +274,7 @@ PassOutput ShaderCompiler::GenerateMSL(const CompiledShader& shader,
     catch (const std::exception& e)
     {
         std::string msg = std::string("MSL cross-compilation failed: ") + e.what();
-        Log::Instance().Error("{}", msg);
-        out.Errors.push_back(std::move(msg));
+        out.Warnings.push_back(std::move(msg));
     }
     return out;
 }
@@ -301,6 +300,188 @@ std::unordered_map<std::string, std::string> ShaderCompiler::ScanShaderDirectory
         }
     }
     return result;
+}
+
+CompiledComputeShader ShaderCompiler::CompileCompute(const std::string& source,
+                                                     const std::string& virtualPath)
+{
+    CompiledComputeShader result;
+
+    DiagnosticCollector diag;
+    SourceManager sm(source.c_str(), static_cast<uint32_t>(source.size()));
+    sm.SetFilePath(virtualPath);
+
+    if (!sm.IsValid())
+    {
+        Log::Instance().Error("SourceManager failed for '{}'", virtualPath);
+        return result;
+    }
+
+    TokenStream stream(sm, &diag);
+    CSL::Parser parser(stream, &diag);
+    auto doc = parser.ParseComputeShader();
+
+    if (diag.HasErrors())
+    {
+        diag.PrintAll();
+        return result;
+    }
+
+    result.GlslVersion = doc.GlslVersion;
+    result.SharedStartLoc = doc.SharedStartLoc;
+    result.SharedSource = std::move(doc.SharedSource);
+    result.Resources = std::move(doc.Resources);
+    result.Uniforms = std::move(doc.Uniforms);
+
+    if (!virtualPath.empty())
+        result.ShaderName = std::filesystem::path(virtualPath).stem().string();
+
+    for (auto& def : doc.Kernels)
+    {
+        CompiledComputeShader::KernelInfo ki;
+        ki.Name = def.Name;
+        ki.GroupSizeX = def.GroupSizeX;
+        ki.GroupSizeY = def.GroupSizeY;
+        ki.GroupSizeZ = def.GroupSizeZ;
+        ki.FunctionSource = std::move(def.FunctionSource);
+        ki.DefLoc = def.Loc;
+        ki.DefAfterLoc = def.AfterLoc;
+        ki.DefInsertID = def.InsertID;
+
+        auto declIt = std::find_if(doc.KernelDecls.begin(), doc.KernelDecls.end(),
+            [&](const CSL::KernelDecl& d) { return d.Name == def.Name; });
+        if (declIt != doc.KernelDecls.end())
+        {
+            ki.VariantDefines = declIt->VariantDefines;
+            ki.DeclLoc = declIt->Loc;
+            ki.DeclAfterLoc = declIt->AfterLoc;
+            ki.DeclInsertID = declIt->InsertID;
+        }
+
+        result.Kernels.push_back(std::move(ki));
+    }
+
+    for (const auto& res : result.Resources)
+    {
+        CompiledComputeShader::BindingInfo bi;
+        bi.Set = res.Set;
+        bi.Binding = res.Binding;
+        bi.Name = res.Name;
+        bi.Kind = res.Kind;
+        result.Bindings.push_back(std::move(bi));
+    }
+
+    return result;
+}
+
+CompiledComputeShader ShaderCompiler::CompileComputeFile(const std::string& filePath)
+{
+    std::string source = m_Config.ReadFile(filePath);
+    if (source.empty())
+    {
+        Log::Instance().Error("Failed to read '{}'", filePath);
+        return {};
+    }
+    return CompileCompute(source, filePath);
+}
+
+ComputeKernelOutput ShaderCompiler::GenerateComputeIR(const CompiledComputeShader& shader,
+                                                      uint32_t kernelIndex)
+{
+    ComputeKernelOutput out;
+    if (kernelIndex >= shader.Kernels.size())
+    {
+        Log::Instance().Error("Compute kernel index {} out of range ({} kernels)",
+            kernelIndex, shader.Kernels.size());
+        return out;
+    }
+
+    ComputeIRGen::SetConfig(m_Config);
+    auto ir = ComputeIRGen::Generate(shader, kernelIndex);
+    out.Source = std::move(ir.Source);
+    return out;
+}
+
+ComputeKernelOutput ShaderCompiler::GenerateComputeSPIRV(const CompiledComputeShader& shader,
+                                                        uint32_t kernelIndex)
+{
+    ComputeKernelOutput out;
+    if (kernelIndex >= shader.Kernels.size())
+    {
+        Log::Instance().Error("Compute kernel index {} out of range ({} kernels)",
+            kernelIndex, shader.Kernels.size());
+        return out;
+    }
+
+    auto ir = GenerateComputeIR(shader, kernelIndex);
+    if (ir.Source.empty())
+    {
+        out.Errors = std::move(ir.Errors);
+        return out;
+    }
+
+    auto spv = CompileGLSL(ir.Source, ShaderStageType::Compute);
+    out.Spirv = std::move(spv.Bytecode);
+    out.Errors = std::move(spv.Errors);
+    out.Warnings = std::move(spv.Warnings);
+    return out;
+}
+
+ComputeKernelOutput ShaderCompiler::GenerateComputeGLSL(const CompiledComputeShader& shader,
+                                                        uint32_t kernelIndex)
+{
+    auto out = GenerateComputeSPIRV(shader, kernelIndex);
+    if (!out.Spirv.empty())
+    {
+        try
+        {
+            out.Source = DecompileSPIRV(out.Spirv);
+        }
+        catch (const std::exception& e)
+        {
+            std::string msg = std::string("GLSL cross-compilation failed: ") + e.what();
+            out.Warnings.push_back(std::move(msg));
+        }
+    }
+    return out;
+}
+
+ComputeKernelOutput ShaderCompiler::GenerateComputeHLSL(const CompiledComputeShader& shader,
+                                                        uint32_t kernelIndex)
+{
+    auto out = GenerateComputeSPIRV(shader, kernelIndex);
+    if (!out.Spirv.empty())
+    {
+        try
+        {
+            out.Source = DecompileHLSL(out.Spirv);
+        }
+        catch (const std::exception& e)
+        {
+            std::string msg = std::string("HLSL cross-compilation failed: ") + e.what();
+            out.Warnings.push_back(std::move(msg));
+        }
+    }
+    return out;
+}
+
+ComputeKernelOutput ShaderCompiler::GenerateComputeMSL(const CompiledComputeShader& shader,
+                                                       uint32_t kernelIndex)
+{
+    auto out = GenerateComputeSPIRV(shader, kernelIndex);
+    if (!out.Spirv.empty())
+    {
+        try
+        {
+            out.Source = DecompileMSL(out.Spirv);
+        }
+        catch (const std::exception& e)
+        {
+            std::string msg = std::string("MSL cross-compilation failed: ") + e.what();
+            out.Warnings.push_back(std::move(msg));
+        }
+    }
+    return out;
 }
 
 }

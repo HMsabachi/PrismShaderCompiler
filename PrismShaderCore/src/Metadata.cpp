@@ -172,4 +172,131 @@ namespace PrismShaderCompiler
         return j.dump(2);
     }
 
+    static std::string_view ResourceKindToString(CSL::ResourceKind k)
+    {
+        switch (k)
+        {
+        case CSL::ResourceKind::StorageBuffer:        return "StorageBuffer";
+        case CSL::ResourceKind::UniformBuffer:        return "UniformBuffer";
+        case CSL::ResourceKind::Sampler2D:            return "Sampler2D";
+        case CSL::ResourceKind::Sampler2DMS:          return "Sampler2DMS";
+        case CSL::ResourceKind::Sampler2DShadow:      return "Sampler2DShadow";
+        case CSL::ResourceKind::Sampler2DArray:       return "Sampler2DArray";
+        case CSL::ResourceKind::Sampler2DArrayShadow: return "Sampler2DArrayShadow";
+        case CSL::ResourceKind::Sampler3D:            return "Sampler3D";
+        case CSL::ResourceKind::SamplerCube:          return "SamplerCube";
+        case CSL::ResourceKind::SamplerCubeShadow:    return "SamplerCubeShadow";
+        case CSL::ResourceKind::Image2D:              return "Image2D";
+        case CSL::ResourceKind::Image3D:              return "Image3D";
+        case CSL::ResourceKind::ImageCube:            return "ImageCube";
+        }
+        return "Unknown";
+    }
+
+    static std::string_view ImageFormatToString(CSL::ImageFormat f)
+    {
+        switch (f)
+        {
+        case CSL::ImageFormat::rgba32f:        return "rgba32f";
+        case CSL::ImageFormat::rgba16f:        return "rgba16f";
+        case CSL::ImageFormat::rg32f:          return "rg32f";
+        case CSL::ImageFormat::rg16f:          return "rg16f";
+        case CSL::ImageFormat::r32f:           return "r32f";
+        case CSL::ImageFormat::r16f:           return "r16f";
+        case CSL::ImageFormat::rgba32i:        return "rgba32i";
+        case CSL::ImageFormat::rgba16i:        return "rgba16i";
+        case CSL::ImageFormat::rgba8i:         return "rgba8i";
+        case CSL::ImageFormat::rg32i:          return "rg32i";
+        case CSL::ImageFormat::rg16i:          return "rg16i";
+        case CSL::ImageFormat::rg8i:           return "rg8i";
+        case CSL::ImageFormat::r32i:           return "r32i";
+        case CSL::ImageFormat::r16i:           return "r16i";
+        case CSL::ImageFormat::r8i:            return "r8i";
+        case CSL::ImageFormat::rgba32ui:        return "rgba32ui";
+        case CSL::ImageFormat::rgba16ui:       return "rgba16ui";
+        case CSL::ImageFormat::rgba8ui:        return "rgba8ui";
+        case CSL::ImageFormat::rg32ui:         return "rg32ui";
+        case CSL::ImageFormat::rg16ui:         return "rg16ui";
+        case CSL::ImageFormat::rg8ui:          return "rg8ui";
+        case CSL::ImageFormat::r32ui:          return "r32ui";
+        case CSL::ImageFormat::r16ui:          return "r16ui";
+        case CSL::ImageFormat::r8ui:           return "r8ui";
+        case CSL::ImageFormat::rgba16:         return "rgba16";
+        case CSL::ImageFormat::rgb10_a2:       return "rgb10_a2";
+        case CSL::ImageFormat::rgba8:          return "rgba8";
+        case CSL::ImageFormat::rgba8_snorm:    return "rgba8_snorm";
+        case CSL::ImageFormat::rg16:           return "rg16";
+        case CSL::ImageFormat::rg8:            return "rg8";
+        case CSL::ImageFormat::rg8_snorm:      return "rg8_snorm";
+        case CSL::ImageFormat::r16:            return "r16";
+        case CSL::ImageFormat::r8:             return "r8";
+        case CSL::ImageFormat::r8_snorm:       return "r8_snorm";
+        case CSL::ImageFormat::r16f_depth:     return "r16f_depth";
+        case CSL::ImageFormat::r32f_depth:    return "r32f_depth";
+        case CSL::ImageFormat::Unknown:        return "unknown";
+        }
+        return "unknown";
+    }
+
+    std::string ToJson(const CompiledComputeShader& shader)
+    {
+        nlohmann::json j;
+
+        j["name"] = shader.ShaderName;
+        j["glslVersion"] = shader.GlslVersion;
+
+        auto& jkernels = j["kernels"] = nlohmann::json::array();
+        for (auto& k : shader.Kernels)
+        {
+            nlohmann::json jk;
+            jk["name"] = k.Name;
+            jk["groupSize"] = std::vector<uint32_t>{ k.GroupSizeX, k.GroupSizeY, k.GroupSizeZ };
+            if (!k.VariantDefines.empty())
+                jk["variants"] = k.VariantDefines;
+            jkernels.push_back(std::move(jk));
+        }
+
+        auto& jres = j["resources"] = nlohmann::json::array();
+        for (auto& r : shader.Resources)
+        {
+            nlohmann::json jr;
+            jr["kind"] = std::string(ResourceKindToString(r.Kind));
+            jr["type"] = GLSLTypeUtil::ToString(r.Type);
+            jr["name"] = r.Name;
+            jr["set"] = r.Set;
+            jr["binding"] = r.Binding;
+            if (r.Format != CSL::ImageFormat::Unknown)
+                jr["format"] = std::string(ImageFormatToString(r.Format));
+            if (!r.BlockName.empty())
+            {
+                jr["blockName"] = r.BlockName;
+                jr["instanceName"] = r.InstanceName;
+            }
+            jres.push_back(std::move(jr));
+        }
+
+        auto& junis = j["uniforms"] = nlohmann::json::array();
+        for (auto& u : shader.Uniforms)
+        {
+            nlohmann::json ju;
+            ju["name"] = u.Name;
+            ju["type"] = GLSLTypeUtil::ToString(u.Type);
+            ju["location"] = u.Location;
+            junis.push_back(std::move(ju));
+        }
+
+        auto& jbindings = j["bindings"] = nlohmann::json::array();
+        for (auto& b : shader.Bindings)
+        {
+            nlohmann::json jb;
+            jb["set"] = b.Set;
+            jb["binding"] = b.Binding;
+            jb["name"] = b.Name;
+            jb["kind"] = std::string(ResourceKindToString(b.Kind));
+            jbindings.push_back(std::move(jb));
+        }
+
+        return j.dump(2);
+    }
+
 } // namespace PrismShaderCompiler

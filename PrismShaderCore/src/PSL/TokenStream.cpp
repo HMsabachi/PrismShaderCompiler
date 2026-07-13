@@ -119,6 +119,7 @@ TokenType TokenStream::LookupKeyword(const char* str, uint32_t len)
         break;
     case 10:
         if (CmpN(str, "Properties")) return TokenType::PropertiesKw;
+        if (CmpN(str, "numthreads"))  return TokenType::NumThreadsKw;
         break;
     case 11:
         if (CmpN(str, "Texture2DMS"))  return TokenType::Texture2DMSKw;

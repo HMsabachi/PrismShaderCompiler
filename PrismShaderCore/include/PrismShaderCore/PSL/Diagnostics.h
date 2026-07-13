@@ -46,4 +46,8 @@ private:
     bool m_HasFatal = false;
 };
 
+std::string FormatDiagnostic(Severity level, const SourceLocation& loc,
+                             const std::string& msg, const std::string& lineText,
+                             uint32_t indicatorLen = 0);
+
 } // namespace PrismShaderCompiler
