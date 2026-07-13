@@ -100,11 +100,11 @@ namespace PrismShaderCompiler::CSL
     void Parser::Error(const std::string& msg)
     {
         auto loc = CurrentLoc();
-        std::string_view code = m_Stream.GetSM().GetView(Current().Offset, Current().Length);
-        if (m_Diag) m_Diag->Error(msg, loc, std::string(code));
+        uint32_t tokLen = Current().Length;
+        std::string lineText(m_Stream.GetSM().GetLineText(Current().Offset));
+        if (m_Diag) m_Diag->Error(msg, loc, lineText);
         auto& log = PrismShaderCompiler::Log::Instance();
-        log.Error("{}:{} {}", loc.Column, loc.Line, msg);
-        log.Error("    --> '{}'", code);
+        log.Error("{}", FormatDiagnostic(Severity::Error, loc, msg, lineText, tokLen));
     }
 
     Token Parser::ConsumeType(const std::string& errMsg)
@@ -229,11 +229,6 @@ namespace PrismShaderCompiler::CSL
         }
 
         FlushSharedChunk(doc.SharedSource, sharedStart);
-    }
-
-    void Parser::ParseLayout(ComputeDocument& doc, uint32_t& sharedStart)
-    {
-
     }
 
     void Parser::ParsePreprocess(ComputeDocument& doc, uint32_t& sharedStart)

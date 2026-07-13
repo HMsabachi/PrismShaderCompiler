@@ -41,7 +41,6 @@ private:
 
     void ParseVersion(ComputeDocument& doc);
     void ParseBody(ComputeDocument& doc);
-    void ParseLayout(ComputeDocument& doc, uint32_t& sharedStart);
     void ParsePreprocess(ComputeDocument& doc, uint32_t& sharedStart);
     void ParseLayoutResource(ComputeDocument& doc, uint32_t& sharedStart);
     void ParseUniform(ComputeDocument& doc, uint32_t& sharedStart);

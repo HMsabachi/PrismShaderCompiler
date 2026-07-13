@@ -114,4 +114,16 @@ std::string_view SourceManager::GetView(uint32_t offset, uint32_t length) const
     return std::string_view(m_Buffer + offset, length < maxLen ? length : maxLen);
 }
 
+std::string_view SourceManager::GetLineText(uint32_t offset) const
+{
+    if (m_LineOffsets.empty() || !m_Buffer) return {};
+    uint32_t line = GetLine(offset);
+    if (line >= m_LineOffsets.size()) return {};
+    uint32_t start = m_LineOffsets[line];
+    uint32_t end = (line + 1 < m_LineOffsets.size()) ? m_LineOffsets[line + 1] : m_Size;
+    while (end > start && (m_Buffer[end - 1] == '\n' || m_Buffer[end - 1] == '\r'))
+        end--;
+    return GetView(start, end - start);
+}
+
 } // namespace PrismShaderCompiler

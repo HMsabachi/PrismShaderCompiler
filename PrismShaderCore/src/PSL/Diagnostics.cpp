@@ -53,21 +53,40 @@ void DiagnosticCollector::PrintAll() const
 
     for (auto& d : m_Diagnostics)
     {
-        std::string prefix;
-        if (!d.Loc.FilePath.empty())
-            prefix = std::format("{}:{}:{}: ", d.Loc.FilePath, d.Loc.Line, d.Loc.Column);
-        else if (d.Loc.Line > 0)
-            prefix = std::format("Line {}:{}: ", d.Loc.Line, d.Loc.Column);
-
-        std::string msg = prefix + d.Message;
-        if (!d.CodeSnippet.empty())
-            msg += std::format("\n    --> '{}'", d.CodeSnippet);
-
+        std::string msg = FormatDiagnostic(d.Level, d.Loc, d.Message, d.CodeSnippet, 0);
         if (d.Level == Severity::Error || d.Level == Severity::Fatal)
             log.Error("{}", msg);
         else
             log.Warn("{}", msg);
     }
+}
+
+std::string FormatDiagnostic(Severity level, const SourceLocation& loc,
+                             const std::string& msg, const std::string& lineText,
+                             uint32_t indicatorLen)
+{
+    static constexpr std::string_view kSev[] = { "warning", "error", "fatal" };
+    auto sevStr = kSev[static_cast<size_t>(level)];
+
+    std::string out;
+    if (!loc.FilePath.empty())
+        out = std::format("{}:{}:{}: {}: {}", loc.FilePath, loc.Line, loc.Column, sevStr, msg);
+    else if (loc.Line > 0)
+        out = std::format("Line {}:{}: {}: {}", loc.Line, loc.Column, sevStr, msg);
+    else
+        out = std::format("{}: {}", sevStr, msg);
+
+    if (!lineText.empty())
+    {
+        std::string lineNum = std::to_string(loc.Line);
+        std::string pad(lineNum.size(), ' ');
+        out += std::format("\n  {} | {}", lineNum, lineText);
+        uint32_t carets = indicatorLen > 0 ? indicatorLen : 1;
+        std::string pointer(loc.Column > 0 ? loc.Column - 1 : 0, ' ');
+        pointer += std::string(carets, '^');
+        out += std::format("\n  {} | {}", pad, pointer);
+    }
+    return out;
 }
 
 } // namespace PrismShaderCompiler
