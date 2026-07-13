@@ -1,4 +1,14 @@
-﻿#include <PrismShaderCore/Compiler.h>
+﻿#if defined(_WIN32)
+    #ifndef NOMINMAX
+        #define NOMINMAX
+    #endif
+    #ifndef WIN32_LEAN_AND_MEAN
+        #define WIN32_LEAN_AND_MEAN
+    #endif
+    #include <windows.h>
+#endif
+
+#include <PrismShaderCore/Compiler.h>
 #include <PrismShaderCore/Metadata.h>
 #include <CLI/CLI11.hpp>
 #include <spdlog/spdlog.h>
@@ -25,6 +35,10 @@ static void WriteBinaryFile(const std::string& path, const std::vector<uint32_t>
 
 int main(int argc, char* argv[])
 {
+#if defined(_WIN32)
+    SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCP(CP_UTF8);
+#endif
     CLI::App app{"psc — Prism Shader Compiler / Prism着色器编译器"};
 
     std::string input;
