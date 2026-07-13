@@ -190,6 +190,15 @@ namespace PrismShaderCompiler::CSL
         Advance();
 
         doc.GlslVersion = TokenInt(ConsumeNumber("期望 GLSL 版本号"));
+
+        if (Check(TokenType::Identifier))
+        {
+            std::string profile = TokenStr(Current());
+            if (profile == "core" || profile == "compatibility" || profile == "es")
+                Advance();
+        }
+
+        doc.SharedStartLoc = CurrentLoc();
     }
 
     void Parser::ParseBody(ComputeDocument& doc)
@@ -252,6 +261,7 @@ namespace PrismShaderCompiler::CSL
             while (Check(TokenType::Identifier) && CurrentLoc().Line == declLine)
                 decl.VariantDefines.push_back(TokenStr(Advance()));
 
+            decl.AfterLoc = CurrentLoc();
             doc.KernelDecls.push_back(std::move(decl));
         }
         else
@@ -422,7 +432,7 @@ namespace PrismShaderCompiler::CSL
         Consume(TokenType::RightParen, "期望 ')'");
         Consume(TokenType::RightBracket, "期望 ']'");
 
-        Consume(TokenType::VoidGLSLKw, "期望 'void'");
+        Token voidTok = Consume(TokenType::VoidGLSLKw, "期望 'void'");
         std::string kernelName = TokenStr(Consume(TokenType::Identifier, "期望 kernel 函数名"));
         Consume(TokenType::LeftParen, "期望 '('");
         Consume(TokenType::RightParen, "期望 ')'");
@@ -443,7 +453,7 @@ namespace PrismShaderCompiler::CSL
         def.GroupSizeX = x;
         def.GroupSizeY = y;
         def.GroupSizeZ = z;
-        def.Loc = CurrentLoc();
+        def.Loc = m_Stream.GetSM().GetLocation(voidTok.Offset);
 
         int funcDepth = 1;
         while (!IsAtEnd() && funcDepth > 0)
@@ -466,6 +476,7 @@ namespace PrismShaderCompiler::CSL
             }
         }
 
+        def.AfterLoc = CurrentLoc();
         doc.Kernels.push_back(std::move(def));
         sharedStart = Current().Offset;
     }

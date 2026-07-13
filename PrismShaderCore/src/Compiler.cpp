@@ -331,6 +331,7 @@ CompiledComputeShader ShaderCompiler::CompileCompute(const std::string& source,
     }
 
     result.GlslVersion = doc.GlslVersion;
+    result.SharedStartLoc = doc.SharedStartLoc;
     result.SharedSource = std::move(doc.SharedSource);
     result.Resources = std::move(doc.Resources);
     result.Uniforms = std::move(doc.Uniforms);
@@ -347,6 +348,7 @@ CompiledComputeShader ShaderCompiler::CompileCompute(const std::string& source,
         ki.GroupSizeZ = def.GroupSizeZ;
         ki.FunctionSource = std::move(def.FunctionSource);
         ki.DefLoc = def.Loc;
+        ki.DefAfterLoc = def.AfterLoc;
         ki.DefInsertID = def.InsertID;
 
         auto declIt = std::find_if(doc.KernelDecls.begin(), doc.KernelDecls.end(),
@@ -355,6 +357,7 @@ CompiledComputeShader ShaderCompiler::CompileCompute(const std::string& source,
         {
             ki.VariantDefines = declIt->VariantDefines;
             ki.DeclLoc = declIt->Loc;
+            ki.DeclAfterLoc = declIt->AfterLoc;
             ki.DeclInsertID = declIt->InsertID;
         }
 

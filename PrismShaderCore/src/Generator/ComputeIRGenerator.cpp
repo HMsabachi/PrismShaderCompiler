@@ -22,6 +22,11 @@ namespace ComputeIRGen
         source.insert(pos, replacement);
     }
 
+    static std::string LineDirective(const SourceLocation& loc)
+    {
+        return "#line " + std::to_string(loc.Line) + " \"" + loc.FilePath + "\"\n";
+    }
+
     Output PSC_API Generate(const CompiledComputeShader& shader, uint32_t kernelIndex)
     {
         Output out;
@@ -30,9 +35,7 @@ namespace ComputeIRGen
 
         for (auto& k : shader.Kernels)
         {
-            std::string declLine = "#line " + std::to_string(k.DeclLoc.Line)
-                                 + " \"" + k.DeclLoc.FilePath + "\"\n";
-            ReplaceInsert(source, declLine, k.DeclInsertID);
+            ReplaceInsert(source, LineDirective(k.DeclAfterLoc), k.DeclInsertID);
         }
 
         for (uint32_t i = 0; i < shader.Kernels.size(); i++)
@@ -44,27 +47,21 @@ namespace ComputeIRGen
                 repl += "layout(local_size_x = " + std::to_string(k.GroupSizeX)
                      + ", local_size_y = " + std::to_string(k.GroupSizeY)
                      + ", local_size_z = " + std::to_string(k.GroupSizeZ) + ") in;\n";
-                repl += "#line " + std::to_string(k.DefLoc.Line)
-                     + " \"" + k.DefLoc.FilePath + "\"\n";
+                repl += LineDirective(k.DefLoc);
                 repl += "void main()\n{\n";
                 repl += k.FunctionSource;
                 repl += "}\n";
+                repl += LineDirective(k.DefAfterLoc);
                 ReplaceInsert(source, repl, k.DefInsertID);
             }
             else
             {
-                std::string line = "#line " + std::to_string(k.DefLoc.Line)
-                                 + " \"" + k.DefLoc.FilePath + "\"\n";
-                ReplaceInsert(source, line, k.DefInsertID);
+                ReplaceInsert(source, LineDirective(k.DefAfterLoc), k.DefInsertID);
             }
         }
 
-        uint32_t firstLine = 1;
-        if (!shader.Kernels.empty())
-            firstLine = shader.Kernels[0].DeclLoc.Line;
-
         out.Source = "#version " + std::to_string(shader.GlslVersion) + " core\n";
-        out.Source += "#line " + std::to_string(firstLine) + "\n";
+        out.Source += LineDirective(shader.SharedStartLoc);
         out.Source += source;
 
         return out;

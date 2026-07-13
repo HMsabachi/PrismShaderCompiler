@@ -86,6 +86,7 @@ struct KernelDecl
     std::vector<std::string> VariantDefines;
     uint32_t InsertID = 0;
     SourceLocation Loc;
+    SourceLocation AfterLoc;
 };
 
 struct KernelDef
@@ -95,12 +96,14 @@ struct KernelDef
     std::string FunctionSource;
     uint32_t InsertID = 0;
     SourceLocation Loc;
+    SourceLocation AfterLoc;
 };
 
 struct ComputeDocument
 {
     std::string ShaderName;
     int GlslVersion = 450;
+    SourceLocation SharedStartLoc;
     std::vector<KernelDecl> KernelDecls;
     std::vector<KernelDef> Kernels;
     std::vector<ComputeResource> Resources;

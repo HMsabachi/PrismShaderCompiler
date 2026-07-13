@@ -13,6 +13,7 @@ struct CompiledComputeShader
 {
     std::string ShaderName;
     int GlslVersion = 450;
+    SourceLocation SharedStartLoc;
 
     struct KernelInfo
     {
@@ -25,6 +26,8 @@ struct CompiledComputeShader
         SourceLocation DefLoc;
         uint32_t DeclInsertID = 0;
         uint32_t DefInsertID = 0;
+        SourceLocation DeclAfterLoc;
+        SourceLocation DefAfterLoc;
     };
     std::vector<KernelInfo> Kernels;
 
