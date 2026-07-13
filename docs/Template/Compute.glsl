@@ -20,8 +20,8 @@ layout(rgba32f, binding = 4) uniform imageCube o_ResultCube;
 layout(r32ui, binding = 5) uniform image2D o_Count2D;
 
 
-uniform float u_Roughness;
-uniform vec4  u_Color;
+layout(location = 0) uniform float u_Roughness;
+layout(location = 1) uniform vec4 u_Color;
 
 const float PI = 3.141592;
 

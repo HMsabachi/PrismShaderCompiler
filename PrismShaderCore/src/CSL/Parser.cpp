@@ -231,6 +231,10 @@ namespace PrismShaderCompiler::CSL
         FlushSharedChunk(doc.SharedSource, sharedStart);
     }
 
+    void Parser::ParseLayout(ComputeDocument& doc, uint32_t& sharedStart)
+    {
+
+    }
 
     void Parser::ParsePreprocess(ComputeDocument& doc, uint32_t& sharedStart)
     {
@@ -270,6 +274,9 @@ namespace PrismShaderCompiler::CSL
         ComputeResource res;
         res.Loc = CurrentLoc();
 
+        uint32_t location = 0;
+        bool hasLocation = false;
+
         Advance(); // layout
         Consume(TokenType::LeftParen, "layout 期望 '('");
 
@@ -293,6 +300,13 @@ namespace PrismShaderCompiler::CSL
                     Advance();
                     Consume(TokenType::Equals, "期望 '='");
                     res.Set = (uint32_t)TokenInt(ConsumeNumber("期望 set 值"));
+                }
+                else if (qual == "location")
+                {
+                    Advance();
+                    Consume(TokenType::Equals, "期望 '='");
+                    location = (uint32_t)TokenInt(ConsumeNumber("期望 location 值"));
+                    hasLocation = true;
                 }
                 else
                 {
@@ -325,7 +339,7 @@ namespace PrismShaderCompiler::CSL
         {
             Advance();
 
-            Token typeTok = ConsumeType("期望 sampler 或 image 类型");
+            Token typeTok = ConsumeType("期望类型");
             GLSLType glslType = GLSLTypeUtil::FromTokenType(typeTok.Type);
 
             if (GLSLTypeUtil::IsSamplerType(glslType))
@@ -338,9 +352,23 @@ namespace PrismShaderCompiler::CSL
                 res.Kind = ImageTokenToResourceKind(typeTok.Type);
                 res.Type = glslType;
             }
+            else if (glslType != GLSLType::None)
+            {
+                if (!hasLocation)
+                    Error("普通 uniform 必须指定 layout(location=N)");
+
+                ComputeUniform uniform;
+                uniform.Loc = res.Loc;
+                uniform.Type = glslType;
+                uniform.Location = location;
+                uniform.Name = TokenStr(Consume(TokenType::Identifier, "期望变量名"));
+                Consume(TokenType::Semicolon, "期望 ';'");
+                doc.Uniforms.push_back(std::move(uniform));
+                return;
+            }
             else
             {
-                Error("layout 后期望 sampler 或 image 类型");
+                Error("layout 后期望 sampler、image 或普通 GLSL 类型");
                 return;
             }
 
@@ -377,16 +405,12 @@ namespace PrismShaderCompiler::CSL
 
     void Parser::ParseUniform(ComputeDocument& doc, uint32_t& sharedStart)
     {
-        ComputeUniform uniform;
-        uniform.Loc = CurrentLoc();
-
-        Advance(); // uniform
-
-        uniform.Type = GLSLTypeUtil::FromTokenType(ConsumeType("期望 uniform 类型").Type);
-        uniform.Name = TokenStr(Consume(TokenType::Identifier, "期望变量名"));
-        Consume(TokenType::Semicolon, "期望 ';'");
-
-        doc.Uniforms.push_back(std::move(uniform));
+        FlushSharedChunk(doc.SharedSource, sharedStart);
+        Error("普通 uniform 必须带 layout(location=N)，如: layout(location=0) uniform float u_Param;");
+        SkipTo(TokenType::Semicolon);
+        if (Check(TokenType::Semicolon))
+            Advance();
+        sharedStart = Current().Offset;
     }
 
     void Parser::ParseKernel(ComputeDocument& doc, uint32_t& sharedStart)
