@@ -124,6 +124,9 @@ enum class TokenType : uint8_t
     OneMinusDstAlphaKw,
     ZeroKw,
     OneKw,
+    StencilKw,
+    PolygonModeKw,
+    LineWidthKw,
 
     // Shader entry points
     VertKw,

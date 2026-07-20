@@ -47,6 +47,8 @@ private:
     void ParsePropertyType(AST::ShaderUniform& uniform);
     std::vector<Scalar> ParseDefaultValue(PropertyType type);
     PipelineState ParseRenderCommand();
+    StencilFunc ParseStencilFunc();
+    StencilOp ParseStencilOp();
     void ParsePass(AST::PassDef& pass);
     void ParseTags(std::unordered_map<std::string, std::string>& tags);
 

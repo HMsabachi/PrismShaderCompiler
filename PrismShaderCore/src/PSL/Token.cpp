@@ -110,6 +110,9 @@ const char* TokenTypeToString(TokenType type)
     case TokenType::OneMinusDstAlphaKw: return "'OneMinusDstAlpha'";
     case TokenType::ZeroKw:             return "'Zero'";
     case TokenType::OneKw:              return "'One'";
+    case TokenType::StencilKw:         return "'Stencil'";
+    case TokenType::PolygonModeKw:      return "'PolygonMode'";
+    case TokenType::LineWidthKw:         return "'LineWidth'";
     case TokenType::VertKw:             return "'vert'";
     case TokenType::FragKw:             return "'frag'";
     case TokenType::AttributeKw:        return "'attribute'";

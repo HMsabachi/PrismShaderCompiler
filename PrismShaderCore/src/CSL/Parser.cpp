@@ -141,7 +141,11 @@ namespace PrismShaderCompiler::CSL
         uint32_t n = sv.size() < 63 ? (uint32_t)sv.size() : 63;
         std::memcpy(buf, sv.data(), n);
         buf[n] = '\0';
-        return std::atoi(buf);
+        int base = 10;
+        const char* p = buf;
+        if (*p == '-' || *p == '+') p++;
+        if (p[0] == '0' && (p[1] == 'x' || p[1] == 'X')) base = 16;
+        return (int)std::strtol(buf, nullptr, base);
     }
 
     void Parser::SkipTo(TokenType type)

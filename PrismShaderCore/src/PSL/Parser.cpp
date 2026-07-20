@@ -166,7 +166,11 @@ int Parser::TokenInt(const Token& t) const
     uint32_t n = sv.size() < 63 ? (uint32_t)sv.size() : 63;
     std::memcpy(buf, sv.data(), n);
     buf[n] = '\0';
-    return std::atoi(buf);
+    int base = 10;
+    const char* p = buf;
+    if (*p == '-' || *p == '+') p++;
+    if (p[0] == '0' && (p[1] == 'x' || p[1] == 'X')) base = 16;
+    return (int)std::strtol(buf, nullptr, base);
 }
 
 void Parser::ParseProperties(std::vector<AST::ShaderUniform>& uniforms)
@@ -368,7 +372,8 @@ PipelineState Parser::ParseRenderCommand()
                 // 可选的独立 alpha blend 参数
                 if (!Check(TokenType::RightBrace) && !Check(TokenType::CullKw)
                     && !Check(TokenType::ZTestKw) && !Check(TokenType::ZWriteKw) && !Check(TokenType::BlendKw)
-                    && !Check(TokenType::ColorMaskKw) && !Check(TokenType::OffsetKw))
+                    && !Check(TokenType::ColorMaskKw) && !Check(TokenType::OffsetKw)
+                    && !Check(TokenType::StencilKw) && !Check(TokenType::PolygonModeKw) && !Check(TokenType::LineWidthKw))
                 {
                     if (Check(TokenType::SrcAlphaKw))     { Advance(); state.SrcAlpha = BlendFactor::SrcAlpha; }
                     else if (Check(TokenType::OneKw))      { Advance(); state.SrcAlpha = BlendFactor::One; }
@@ -450,11 +455,112 @@ PipelineState Parser::ParseRenderCommand()
             state.Mark(PipelineState::Field::DepthBiasFactor);
             state.Mark(PipelineState::Field::DepthBiasUnits);
         }
+        else if (Check(TokenType::StencilKw))
+        {
+            Advance();
+            Consume(TokenType::LeftBrace, "期望 '{' 开始 Stencil 块");
+            while (!IsAtEnd() && !Check(TokenType::RightBrace))
+            {
+                std::string key = TokenStr(Advance());
+                if (key == "Ref")
+                {
+                    state.StencilRef = TokenInt(ConsumeNumber("期望 Stencil Ref 值"));
+                    state.Mark(PipelineState::Field::StencilRef);
+                }
+                else if (key == "ReadMask")
+                {
+                    state.StencilReadMask = (uint32_t)TokenInt(ConsumeNumber("期望 Stencil ReadMask 值"));
+                    state.Mark(PipelineState::Field::StencilReadMask);
+                }
+                else if (key == "WriteMask")
+                {
+                    state.StencilWriteMask = (uint32_t)TokenInt(ConsumeNumber("期望 Stencil WriteMask 值"));
+                    state.Mark(PipelineState::Field::StencilWriteMask);
+                }
+                else if (key == "Comp")
+                {
+                    state.StencilCompare = ParseStencilFunc();
+                    state.StencilTest = true;
+                    state.Mark(PipelineState::Field::StencilTest);
+                    state.Mark(PipelineState::Field::StencilCompare);
+                }
+                else if (key == "Pass")
+                {
+                    state.StencilPassOp = ParseStencilOp();
+                    state.StencilTest = true;
+                    state.Mark(PipelineState::Field::StencilTest);
+                    state.Mark(PipelineState::Field::StencilPassOp);
+                }
+                else if (key == "Fail")
+                {
+                    state.StencilFailOp = ParseStencilOp();
+                    state.StencilTest = true;
+                    state.Mark(PipelineState::Field::StencilTest);
+                    state.Mark(PipelineState::Field::StencilFailOp);
+                }
+                else if (key == "ZFail")
+                {
+                    state.StencilDepthFailOp = ParseStencilOp();
+                    state.StencilTest = true;
+                    state.Mark(PipelineState::Field::StencilTest);
+                    state.Mark(PipelineState::Field::StencilDepthFailOp);
+                }
+                else
+                    Error("未知的 Stencil 子命令: " + key);
+            }
+            Consume(TokenType::RightBrace, "期望 '}' 结束 Stencil 块");
+        }
+        else if (Check(TokenType::PolygonModeKw))
+        {
+            Advance();
+            std::string v = TokenStr(Advance());
+            if (v == "Fill")       state.FillMode = PolygonMode::Fill;
+            else if (v == "Line")   state.FillMode = PolygonMode::Line;
+            else if (v == "Point") state.FillMode = PolygonMode::Point;
+            else                   Error("非法的 PolygonMode 值: " + v);
+            state.Mark(PipelineState::Field::FillMode);
+        }
+        else if (Check(TokenType::LineWidthKw))
+        {
+            Advance();
+            state.LineWidth = TokenFloat(ConsumeNumber("期望 LineWidth 值"));
+            state.Mark(PipelineState::Field::LineWidth);
+        }
         else
             Advance();
     }
 
     return state;
+}
+
+StencilFunc Parser::ParseStencilFunc()
+{
+    std::string v = TokenStr(Advance());
+    if (v == "Never")    return StencilFunc::Never;
+    if (v == "Less")     return StencilFunc::Less;
+    if (v == "Equal")    return StencilFunc::Equal;
+    if (v == "LEqual")   return StencilFunc::LEqual;
+    if (v == "Greater")  return StencilFunc::Greater;
+    if (v == "NotEqual") return StencilFunc::NotEqual;
+    if (v == "GEqual")   return StencilFunc::GEqual;
+    if (v == "Always")   return StencilFunc::Always;
+    Error("非法的 Stencil Comp 值: " + v);
+    return StencilFunc::Always;
+}
+
+StencilOp Parser::ParseStencilOp()
+{
+    std::string v = TokenStr(Advance());
+    if (v == "Keep")      return StencilOp::Keep;
+    if (v == "Zero")      return StencilOp::Zero;
+    if (v == "Replace")   return StencilOp::Replace;
+    if (v == "Incr")      return StencilOp::Incr;
+    if (v == "IncrWrap")  return StencilOp::IncrWrap;
+    if (v == "Decr")      return StencilOp::Decr;
+    if (v == "DecrWrap")  return StencilOp::DecrWrap;
+    if (v == "Invert")    return StencilOp::Invert;
+    Error("非法的 Stencil Op 值: " + v);
+    return StencilOp::Keep;
 }
 
 void Parser::ParsePass(AST::PassDef& pass)

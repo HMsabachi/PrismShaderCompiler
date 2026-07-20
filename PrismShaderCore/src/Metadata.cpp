@@ -23,6 +23,16 @@ namespace PrismShaderCompiler
         j["colorMask"]          = (int)rs.WriteMask;
         j["depthBias"]["factor"] = rs.DepthBiasFactor;
         j["depthBias"]["units"]  = rs.DepthBiasUnits;
+        j["stencil"]["test"]        = rs.StencilTest;
+        j["stencil"]["compare"]     = (int)rs.StencilCompare;
+        j["stencil"]["ref"]         = rs.StencilRef;
+        j["stencil"]["readMask"]    = rs.StencilReadMask;
+        j["stencil"]["writeMask"]   = rs.StencilWriteMask;
+        j["stencil"]["failOp"]      = (int)rs.StencilFailOp;
+        j["stencil"]["depthFailOp"] = (int)rs.StencilDepthFailOp;
+        j["stencil"]["passOp"]      = (int)rs.StencilPassOp;
+        j["polygonMode"] = (int)rs.FillMode;
+        j["lineWidth"]   = rs.LineWidth;
         return j;
     }
 
