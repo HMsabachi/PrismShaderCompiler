@@ -45,6 +45,16 @@ static void WriteBinaryFile(const std::string& path, const std::vector<uint32_t>
         out.write(reinterpret_cast<const char*>(data.data()), data.size() * sizeof(uint32_t));
 }
 
+static void PrintReflection(std::string_view label, const psc::ShaderReflection& reflection)
+{
+    if (reflection.Bindings.empty() && reflection.PushConstants.empty())
+    {
+        spdlog::info("[{}] reflection: (none)", label);
+        return;
+    }
+    spdlog::info("[{}] reflection:\n{}", label, psc::ToJson(reflection));
+}
+
 static std::string SanitizeName(std::string name)
 {
     for (auto& c : name)
@@ -96,7 +106,7 @@ static const ShaderTargetSpec kShaderTargets[] = {
 };
 
 static int EmitCompute(psc::ShaderCompiler& compiler, const std::string& input,
-                       uint32_t targets, const std::string& outputDir)
+                       uint32_t targets, const std::string& outputDir, bool reflectRequested)
 {
     auto compute = compiler.CompileComputeFile(input);
     if (compute.Kernels.empty())
@@ -123,6 +133,8 @@ static int EmitCompute(psc::ShaderCompiler& compiler, const std::string& input,
             else
                 WriteFile(path.string(), out.Source);
             spdlog::info("{}{}", base, spec.ext);
+            if (reflectRequested && spec.flag == Target::SPIRV)
+                PrintReflection(base, out.Reflection);
         }
     }
 
@@ -140,7 +152,7 @@ static int EmitCompute(psc::ShaderCompiler& compiler, const std::string& input,
 
 static int EmitShader(psc::ShaderCompiler& compiler, const std::string& input,
                       uint32_t targets, const std::string& outputDir,
-                      const std::vector<std::string>& defines)
+                      const std::vector<std::string>& defines, bool reflectRequested)
 {
     auto shader = compiler.CompileFile(input);
     if (shader.Passes.empty())
@@ -180,6 +192,8 @@ static int EmitShader(psc::ShaderCompiler& compiler, const std::string& input,
                 WriteFile((dir / (base + spec.fragExt)).string(), out.FragmentShader);
             }
             spdlog::info("{}{} / {}{}", base, spec.vertExt, base, spec.fragExt);
+            if (reflectRequested && spec.flag == Target::SPIRV)
+                PrintReflection(base, out.Reflection);
         }
     }
 
@@ -210,6 +224,7 @@ int main(int argc, char* argv[])
     std::string engineDir  = "Assets/Engine";
     std::vector<std::string> defines;
     bool verbose = false;
+    bool reflectRequested = false;
 
     uint32_t targets = 0;
     auto addTarget = [&](std::string flags, Target t, std::string desc) {
@@ -229,6 +244,7 @@ int main(int argc, char* argv[])
     addTarget("-j,--json",  Target::JSON,  "Output metadata JSON / 输出元数据JSON");
     addTarget("-a,--all",   Target::All,   "Generate all targets + JSON / 生成全部目标+JSON");
     app.add_flag("-v,--verbose", verbose, "Verbose output / 详细输出");
+    app.add_flag("-R,--reflect", reflectRequested, "Print SPIR-V reflection / 打印反射数据");
 
     try {
         app.parse(argc, argv);
@@ -277,7 +293,10 @@ int main(int argc, char* argv[])
         compiler.SetConfig(config);
     }
 
+    if (reflectRequested)
+        targets |= (uint32_t)Target::SPIRV;
+
     if (isCompute)
-        return EmitCompute(compiler, input, targets, outputDir);
-    return EmitShader(compiler, input, targets, outputDir, defines);
+        return EmitCompute(compiler, input, targets, outputDir, reflectRequested);
+    return EmitShader(compiler, input, targets, outputDir, defines, reflectRequested);
 }

@@ -309,4 +309,54 @@ namespace PrismShaderCompiler
         return j.dump(2);
     }
 
+    static std::string_view DescriptorTypeToString(DescriptorType t)
+    {
+        switch (t)
+        {
+        case DescriptorType::UniformBuffer:        return "UniformBuffer";
+        case DescriptorType::StorageBuffer:        return "StorageBuffer";
+        case DescriptorType::UniformBufferDynamic: return "UniformBufferDynamic";
+        case DescriptorType::StorageBufferDynamic: return "StorageBufferDynamic";
+        case DescriptorType::CombinedImageSampler: return "CombinedImageSampler";
+        case DescriptorType::SampledImage:         return "SampledImage";
+        case DescriptorType::StorageImage:        return "StorageImage";
+        case DescriptorType::Sampler:              return "Sampler";
+        case DescriptorType::InputAttachment:     return "InputAttachment";
+        }
+        return "Unknown";
+    }
+
+    std::string ToJson(const ShaderReflection& reflection)
+    {
+        nlohmann::json j;
+
+        auto& jb = j["bindings"] = nlohmann::json::array();
+        for (auto& b : reflection.Bindings)
+        {
+            nlohmann::json o;
+            o["set"]     = b.Set;
+            o["binding"] = b.Binding;
+            o["type"]    = std::string(DescriptorTypeToString(b.Type));
+            o["stages"]  = b.StageFlags;
+            o["count"]   = b.Count;
+            if (!b.Name.empty())      o["name"]      = b.Name;
+            if (!b.BlockName.empty()) o["blockName"] = b.BlockName;
+            if (b.BufferSize)         o["size"]      = b.BufferSize;
+            jb.push_back(std::move(o));
+        }
+
+        auto& jp = j["pushConstants"] = nlohmann::json::array();
+        for (auto& pc : reflection.PushConstants)
+        {
+            nlohmann::json o;
+            o["offset"] = pc.Offset;
+            o["size"]    = pc.Size;
+            o["stages"]  = pc.StageFlags;
+            if (!pc.Name.empty()) o["name"] = pc.Name;
+            jp.push_back(std::move(o));
+        }
+
+        return j.dump(2);
+    }
+
 } // namespace PrismShaderCompiler
