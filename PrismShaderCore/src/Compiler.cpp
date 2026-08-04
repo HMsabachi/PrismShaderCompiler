@@ -173,7 +173,7 @@ namespace PrismShaderCompiler
         uint32_t passIndex,
         const std::vector<std::string>& keywords)
     {
-        auto out = GenerateSPIRV(shader, passIndex, keywords);
+        auto out = GenerateSPIRVImpl(shader, passIndex, keywords, TargetBackend::OpenGL);
         try
         {
             auto glsl = DecompileSPIRV({ out.SpirvVertex, out.SpirvFragment });
@@ -192,6 +192,14 @@ namespace PrismShaderCompiler
         uint32_t passIndex,
         const std::vector<std::string>& keywords)
     {
+        return GenerateSPIRVImpl(shader, passIndex, keywords, TargetBackend::Vulkan);
+    }
+
+    PassOutput ShaderCompiler::GenerateSPIRVImpl(const CompiledShader& shader,
+        uint32_t passIndex,
+        const std::vector<std::string>& keywords,
+        TargetBackend backend)
+    {
         PassOutput out;
         if (passIndex >= shader.Passes.size())
         {
@@ -203,7 +211,8 @@ namespace PrismShaderCompiler
         auto glsl = IRGen::Generate(shader.Passes[passIndex].Glsl,
             shader.Uniforms,
             shader.ShaderName,
-            keywords);
+            keywords,
+            backend);
 
         auto vsSPV = CompileGLSL(glsl.Vertex, ShaderStageType::Vertex);
         auto fsSPV = CompileGLSL(glsl.Fragment, ShaderStageType::Fragment);
@@ -221,17 +230,6 @@ namespace PrismShaderCompiler
         for (auto& e : fsSPV.Errors) { log.Error("FS{}: {}", stageSuffix, e); out.Errors.push_back(std::move(e)); }
         for (auto& w : fsSPV.Warnings) { log.Warn("FS{}: {}", stageSuffix, w); out.Warnings.push_back(std::move(w)); }
 
-        if (!out.SpirvVertex.empty() && !out.SpirvFragment.empty())
-        {
-            auto vsRefl = ReflectSPIRV(out.SpirvVertex, ShaderStageVertexBit);
-            auto fsRefl = ReflectSPIRV(out.SpirvFragment, ShaderStageFragmentBit);
-            out.Reflection = MergeReflections(vsRefl, fsRefl);
-        }
-        else if (!out.SpirvVertex.empty())
-            out.Reflection = ReflectSPIRV(out.SpirvVertex, ShaderStageVertexBit);
-        else if (!out.SpirvFragment.empty())
-            out.Reflection = ReflectSPIRV(out.SpirvFragment, ShaderStageFragmentBit);
-
         return out;
     }
 
@@ -248,7 +246,8 @@ namespace PrismShaderCompiler
         auto glsl = IRGen::Generate(shader.Passes[passIndex].Glsl,
             shader.Uniforms,
             shader.ShaderName,
-            keywords);
+            keywords,
+            TargetBackend::OpenGL);
         out.VertexShader = std::move(glsl.Vertex);
         out.FragmentShader = std::move(glsl.Fragment);
         return out;
@@ -435,8 +434,6 @@ namespace PrismShaderCompiler
         out.Spirv = std::move(spv.Bytecode);
         out.Errors = std::move(spv.Errors);
         out.Warnings = std::move(spv.Warnings);
-        if (!out.Spirv.empty())
-            out.Reflection = ReflectSPIRV(out.Spirv, ShaderStageComputeBit);
         return out;
     }
 

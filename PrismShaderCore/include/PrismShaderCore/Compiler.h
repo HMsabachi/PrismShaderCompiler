@@ -2,7 +2,6 @@
 
 #include "Log.h"
 #include "Callback.h"
-#include "Reflection.h"
 #include "PSL/AST.h"
 #include "CompilerCompute.h"
 #include "Pipeline/PipelineState.h"
@@ -48,10 +47,11 @@ namespace PrismShaderCompiler
         std::string FragmentShader;
         std::vector<uint32_t> SpirvVertex;
         std::vector<uint32_t> SpirvFragment;
-        ShaderReflection Reflection;
         std::vector<std::string> Errors;
         std::vector<std::string> Warnings;
     };
+
+    enum class TargetBackend : uint8_t;
 
     struct CompilerConfig
     {
@@ -60,16 +60,10 @@ namespace PrismShaderCompiler
         ResolveUsePassCallback ResolveUsePass = nullptr;
 
         std::string IncludeRoot = "Assets/Include";
-        std::string EngineRoot = "Assets/Engine";
 
         int  GlslVersion = 450;
         int  BindingMaterial = 2;
         std::string MaterialBlockName = "PrismMaterial";
-
-        std::vector<std::string> EngineHeaders = {
-            "Bindings.glsl", "PrismFrame.glsl", "PrismObject.glsl",
-            "PrismShadow.glsl", "PrismEngineTextures.glsl",
-        };
     };
 
     class ShaderCompiler
@@ -118,6 +112,11 @@ namespace PrismShaderCompiler
         std::unordered_map<std::string, std::string> ScanShaderDirectory(const std::string& searchRoot);
 
     private:
+        PassOutput GenerateSPIRVImpl(const CompiledShader& shader,
+            uint32_t passIndex,
+            const std::vector<std::string>& keywords,
+            TargetBackend backend);
+
         CompilerConfig m_Config;
         std::unordered_set<std::string> m_CompileInProgress;
     };

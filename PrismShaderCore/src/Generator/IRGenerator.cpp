@@ -44,12 +44,16 @@ namespace PrismShaderCompiler::IRGen
         replaceInsert(source, line, include.InsertID);
     }
 
-    static void GenerateEngineHeader(std::string& source)
+    static void GenerateBackendDefine(std::string& source, TargetBackend backend)
     {
-        for (auto& header : s_Config.EngineHeaders)
+        switch (backend)
         {
-            source += "#line 1 \"" + header + "\"\n";
-            source += ExpandIncludesRecursive(header, s_Config.EngineRoot);
+        case TargetBackend::OpenGL:
+            source += "#define PRISM_BACKEND_OPENGL 1\n";
+            break;
+        case TargetBackend::Vulkan:
+            source += "#define PRISM_BACKEND_VULKAN 1\n";
+            break;
         }
     }
 
@@ -212,16 +216,19 @@ namespace PrismShaderCompiler::IRGen
         source += line;
     }
 
-    static void GeneratePropertyUniforms(std::string& source, const std::vector<AST::ShaderUniform>& uniforms)
+    static void GeneratePropertyUniforms(std::string& source, const std::vector<AST::ShaderUniform>& uniforms, TargetBackend backend)
     {
         std::string uboBody;
+        bool isVK = (backend == TargetBackend::Vulkan);
+
         for (const auto& uniform : uniforms)
         {
             if (PropertyTypeUtil::IsTextureType(uniform.Type))
             {
-                source += "layout(binding = ";
-                source += std::to_string(uniform.TextureSlot);
-                source += ") ";
+                if (isVK)
+                    source += "layout(set = 3, binding = " + std::to_string(uniform.TextureSlot) + ") ";
+                else
+                    source += "layout(binding = " + std::to_string(uniform.TextureSlot) + ") ";
                 source += PropertyTypeUtil::ToGLSLUniform(uniform.Type);
                 source += " " + uniform.Name + ";\n";
             }
@@ -234,21 +241,25 @@ namespace PrismShaderCompiler::IRGen
         }
         if (!uboBody.empty())
         {
-            source += "layout(std140, binding = " + std::to_string(s_Config.BindingMaterial)
-                   + ") uniform " + s_Config.MaterialBlockName + "\n{\n";
+            std::string layout;
+            if (isVK)
+                layout = "layout(std140, set = 2, binding = 0) ";
+            else
+                layout = "layout(std140, binding = " + std::to_string(s_Config.BindingMaterial) + ") ";
+            source += layout + "uniform " + s_Config.MaterialBlockName + "\n{\n";
             source += uboBody;
             source += "};\n\n";
         }
     }
 
-    Output PSC_API Generate(const AST::GLSLCode& glsl, const std::vector<AST::ShaderUniform>& uniforms, const std::string& filePath, const std::vector<std::string>& activeKeywords)
+    Output PSC_API Generate(const AST::GLSLCode& glsl, const std::vector<AST::ShaderUniform>& uniforms, const std::string& filePath, const std::vector<std::string>& activeKeywords, TargetBackend backend)
     {
         Output output{};
 
         std::string sharedSource;
-        GenerateEngineHeader(sharedSource);
+        GenerateBackendDefine(sharedSource, backend);
         GenerateDefines(sharedSource, activeKeywords);
-        GeneratePropertyUniforms(sharedSource, uniforms);
+        GeneratePropertyUniforms(sharedSource, uniforms, backend);
         sharedSource += "#line " + std::to_string(glsl.Loc.Line) + " \"" + std::string(glsl.Loc.FilePath) + "\"\n";
         sharedSource += glsl.SharedSource;
         for (const auto& pragma : glsl.Pragmas)

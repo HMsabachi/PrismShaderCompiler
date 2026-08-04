@@ -183,7 +183,6 @@ using namespace PrismShaderCompiler;
 // 初始化（引擎启动时一次）
 CompilerConfig config;
 config.IncludeRoot = "Assets/Include";
-config.EngineRoot  = "Assets/Engine";
 config.OnLog = [](LogLevel lv, const std::string& msg) {
     if (lv == LogLevel::Error) PR_CORE_ERROR("{}", msg);
     else                       PR_CORE_WARN("{}", msg);

@@ -1,7 +1,6 @@
 ﻿#pragma once
 
 #include "CSL/AST.h"
-#include "Reflection.h"
 
 #include <string>
 #include <vector>
@@ -50,7 +49,6 @@ struct ComputeKernelOutput
 {
     std::string Source;
     std::vector<uint32_t> Spirv;
-    ShaderReflection Reflection;
     std::vector<std::string> Errors;
     std::vector<std::string> Warnings;
 };

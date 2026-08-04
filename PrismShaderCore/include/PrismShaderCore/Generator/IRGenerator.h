@@ -12,6 +12,12 @@ namespace PrismShaderCompiler
 
 struct CompilerConfig;
 
+enum class TargetBackend : uint8_t
+{
+    OpenGL,
+    Vulkan,
+};
+
 namespace IRGen
 {
     struct Output { std::string Vertex; std::string Fragment; };
@@ -22,7 +28,8 @@ namespace IRGen
         const AST::GLSLCode& glsl,
         const std::vector<AST::ShaderUniform>& uniforms,
         const std::string& filePath,
-        const std::vector<std::string>& activeKeywords = {}
+        const std::vector<std::string>& activeKeywords,
+        TargetBackend backend
     );
 }
 
