@@ -343,41 +343,66 @@ namespace PrismShaderCompiler::CSL
         {
             Advance();
 
-            Token typeTok = ConsumeType("期望类型");
-            GLSLType glslType = GLSLTypeUtil::FromTokenType(typeTok.Type);
+            bool isUboBlock = Check(TokenType::LeftBrace)
+                || (Check(TokenType::Identifier) && PeekToken(1).Type == TokenType::LeftBrace);
+            if (isUboBlock)
+            {
+                res.Kind = ResourceKind::UniformBuffer;
+                if (Check(TokenType::Identifier))
+                    res.BlockName = TokenStr(Consume(TokenType::Identifier, "期望 uniform 块名"));
+                res.Type = GLSLType::None;
 
-            if (GLSLTypeUtil::IsSamplerType(glslType))
-            {
-                res.Kind = SamplerTokenToResourceKind(typeTok.Type);
-                res.Type = glslType;
-            }
-            else if (GLSLTypeUtil::IsImageType(glslType))
-            {
-                res.Kind = ImageTokenToResourceKind(typeTok.Type);
-                res.Type = glslType;
-            }
-            else if (glslType != GLSLType::None)
-            {
-                if (!hasLocation)
-                    Error("普通 uniform 必须指定 layout(location=N)");
+                Consume(TokenType::LeftBrace, "期望 '{'");
+                int braceDepth = 1;
+                while (!IsAtEnd() && braceDepth > 0)
+                {
+                    if (Check(TokenType::LeftBrace))  { Advance(); braceDepth++; }
+                    else if (Check(TokenType::RightBrace)) { Advance(); braceDepth--; }
+                    else Advance();
+                }
 
-                ComputeUniform uniform;
-                uniform.Loc = res.Loc;
-                uniform.Type = glslType;
-                uniform.Location = location;
-                uniform.Name = TokenStr(Consume(TokenType::Identifier, "期望变量名"));
+                if (Check(TokenType::Identifier))
+                    res.InstanceName = TokenStr(Consume(TokenType::Identifier, "期望 uniform 实例名"));
                 Consume(TokenType::Semicolon, "期望 ';'");
-                doc.Uniforms.push_back(std::move(uniform));
-                return;
             }
             else
             {
-                Error("layout 后期望 sampler、image 或普通 GLSL 类型");
-                return;
-            }
+                Token typeTok = ConsumeType("期望类型");
+                GLSLType glslType = GLSLTypeUtil::FromTokenType(typeTok.Type);
 
-            res.Name = TokenStr(Consume(TokenType::Identifier, "期望资源名称"));
-            Consume(TokenType::Semicolon, "期望 ';'");
+                if (GLSLTypeUtil::IsSamplerType(glslType))
+                {
+                    res.Kind = SamplerTokenToResourceKind(typeTok.Type);
+                    res.Type = glslType;
+                }
+                else if (GLSLTypeUtil::IsImageType(glslType))
+                {
+                    res.Kind = ImageTokenToResourceKind(typeTok.Type);
+                    res.Type = glslType;
+                }
+                else if (glslType != GLSLType::None)
+                {
+                    if (!hasLocation)
+                        Error("普通 uniform 必须指定 layout(location=N)");
+
+                    ComputeUniform uniform;
+                    uniform.Loc = res.Loc;
+                    uniform.Type = glslType;
+                    uniform.Location = location;
+                    uniform.Name = TokenStr(Consume(TokenType::Identifier, "期望变量名"));
+                    Consume(TokenType::Semicolon, "期望 ';'");
+                    doc.Uniforms.push_back(std::move(uniform));
+                    return;
+                }
+                else
+                {
+                    Error("layout 后期望 sampler、image 或普通 GLSL 类型");
+                    return;
+                }
+
+                res.Name = TokenStr(Consume(TokenType::Identifier, "期望资源名称"));
+                Consume(TokenType::Semicolon, "期望 ';'");
+            }
         }
         else if (Check(TokenType::Identifier) && TokenStr(Current()) == "buffer")
         {
