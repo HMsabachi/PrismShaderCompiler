@@ -28,7 +28,7 @@ namespace PrismShaderCompiler
         }
     }
 
-    SpirvResult PSC_API CompileGLSL(const std::string& glslSource, ShaderStageType stage)
+    SpirvResult PSC_API CompileGLSL(const std::string& glslSource, ShaderStageType stage, TargetBackend backend)
     {
         SpirvResult result;
         EnsureInitialized();
@@ -37,8 +37,17 @@ namespace PrismShaderCompiler
         glslang::TShader shader(lang);
         const char* src = glslSource.c_str();
         shader.setStrings(&src, 1);
-        shader.setEnvInput(glslang::EShSourceGlsl, lang, glslang::EShClientOpenGL, 450);
-        shader.setEnvClient(glslang::EShClientOpenGL, glslang::EShTargetOpenGL_450);
+
+        if (backend == TargetBackend::Vulkan)
+        {
+            shader.setEnvInput(glslang::EShSourceGlsl, lang, glslang::EShClientVulkan, 450);
+            shader.setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_0);
+        }
+        else
+        {
+            shader.setEnvInput(glslang::EShSourceGlsl, lang, glslang::EShClientOpenGL, 450);
+            shader.setEnvClient(glslang::EShClientOpenGL, glslang::EShTargetOpenGL_450);
+        }
         shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_0);
         shader.setPreamble("#extension GL_GOOGLE_cpp_style_line_directive : enable\n");
 

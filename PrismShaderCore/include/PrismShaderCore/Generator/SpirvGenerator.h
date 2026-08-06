@@ -3,6 +3,7 @@
 #include "../Base.h"
 
 #include "../PSL/Common.h"
+#include "IRGenerator.h"
 #include <vector>
 #include <string>
 #include <cstdint>
@@ -18,6 +19,6 @@ struct SpirvResult
     bool Success = false;
 };
 
-SpirvResult PSC_API CompileGLSL(const std::string& glslSource, ShaderStageType stage);
+SpirvResult PSC_API CompileGLSL(const std::string& glslSource, ShaderStageType stage, TargetBackend backend = TargetBackend::OpenGL);
 
 } // namespace PrismShaderCompiler

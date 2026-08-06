@@ -214,8 +214,8 @@ namespace PrismShaderCompiler
             keywords,
             backend);
 
-        auto vsSPV = CompileGLSL(glsl.Vertex, ShaderStageType::Vertex);
-        auto fsSPV = CompileGLSL(glsl.Fragment, ShaderStageType::Fragment);
+        auto vsSPV = CompileGLSL(glsl.Vertex, ShaderStageType::Vertex, backend);
+        auto fsSPV = CompileGLSL(glsl.Fragment, ShaderStageType::Fragment, backend);
 
         out.SpirvVertex = std::move(vsSPV.Bytecode);
         out.SpirvFragment = std::move(fsSPV.Bytecode);
