@@ -225,10 +225,19 @@ namespace PrismShaderCompiler::IRGen
         {
             if (PropertyTypeUtil::IsTextureType(uniform.Type))
             {
-                if (isVK)
-                    source += "layout(set = 3, binding = " + std::to_string(uniform.TextureSlot) + ") ";
-                else
-                    source += "layout(binding = " + std::to_string(uniform.TextureSlot) + ") ";
+                switch (backend)
+                {
+                case PrismShaderCompiler::TargetBackend::OpenGL:
+                    source += "layout(binding = " + std::to_string(uniform.TextureSlot + s_Config.OpenGLTextureBeginBinding) + ") ";
+                    break;
+                case PrismShaderCompiler::TargetBackend::Vulkan:
+                    source += "layout(set = " + std::to_string(s_Config.VulkanTextureBeginSet)
+                            + ", binding = " + std::to_string(uniform.TextureSlot + s_Config.VulkanTextureBeginBinding) + ") ";
+                    break;
+                default:
+                    throw std::runtime_error("Unsupported backend for property uniforms");
+                    break;
+                }
                 source += PropertyTypeUtil::ToGLSLUniform(uniform.Type);
                 source += " " + uniform.Name + ";\n";
             }
@@ -242,10 +251,19 @@ namespace PrismShaderCompiler::IRGen
         if (!uboBody.empty())
         {
             std::string layout;
-            if (isVK)
-                layout = "layout(std140, set = 2, binding = 0) ";
-            else
-                layout = "layout(std140, binding = " + std::to_string(s_Config.BindingMaterial) + ") ";
+            switch (backend)
+            {
+            case PrismShaderCompiler::TargetBackend::OpenGL:
+                layout = "layout(std140, binding = " + std::to_string(s_Config.OpenGLMaterialUniformBufferBinding) + ") ";
+                break;
+            case PrismShaderCompiler::TargetBackend::Vulkan:
+                layout = "layout(std140, set = " + std::to_string(s_Config.VulkanMaterialUniformBufferSet)
+                       + ", binding = " + std::to_string(s_Config.VulkanMaterialUniformBufferBinding) + ") ";
+                break;
+            default:
+                throw std::runtime_error("Unsupported backend for property uniforms");
+                break;
+            }
             source += layout + "uniform " + s_Config.MaterialBlockName + "\n{\n";
             source += uboBody;
             source += "};\n\n";

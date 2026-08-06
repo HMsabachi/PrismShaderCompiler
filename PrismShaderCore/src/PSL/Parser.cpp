@@ -316,7 +316,7 @@ std::vector<Scalar> Parser::ParseDefaultValue(PropertyType type)
 void Parser::ParseMaterialLayout(AST::ShaderDocument& doc)
 {
     doc.MaterialLayout = PropertyLayout{};
-    uint32_t nextTexSlot = 16;
+    uint32_t nextTexSlot = 0;
 
     for (auto& uniform : doc.Uniforms)
     {
