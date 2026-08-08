@@ -62,12 +62,12 @@ namespace PrismShaderCompiler
         uint32_t GlslVersion = 450;
         std::string MaterialBlockName = "PrismMaterial";
 
-        uint32_t OpenGLMaterialUniformBufferBinding = 2;
-        uint32_t OpenGLTextureBeginBinding = 16;
+        uint32_t OpenGLMaterialUniformBufferBinding = 20;
+        uint32_t OpenGLTextureBeginBinding = 12;
 
-        uint32_t VulkanMaterialUniformBufferSet = 2;
+        uint32_t VulkanMaterialUniformBufferSet = 3;
         uint32_t VulkanMaterialUniformBufferBinding = 0;
-        uint32_t VulkanTextureBeginSet = 2;
+        uint32_t VulkanTextureBeginSet = 3;
         uint32_t VulkanTextureBeginBinding = 1;
     };
 
