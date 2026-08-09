@@ -118,10 +118,6 @@ float PrismDeltaTime()
 
 // 解包 / 重映射
 
-vec3 PrismUnpackNormal(vec4 packed)
-{
-    return packed.xyz * 2.0 - 1.0;
-}
 
 vec3 PrismUnpackNormalMapIntensity(vec3 unpackedNormal, float intensity)
 {

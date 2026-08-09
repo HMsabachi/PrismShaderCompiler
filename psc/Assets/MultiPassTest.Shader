@@ -21,12 +21,14 @@ Shader "Test/MultiPass"
             Name "RedPass"
             GLSL
             {
-                #include "PrismCommon.glsl"
+                #include "PrismEngine.glsl"
 
                 attribute vec3 a_Position : POSITION;
                 attribute vec3 a_Normal : NORMAL;
 
-                VARYING VertexOutput
+                layout(location = 0) out vec4 FragColor;
+
+                varying VertexOutput
                 {
                     vec3 Normal;
                 } vs_Output;
@@ -52,12 +54,14 @@ Shader "Test/MultiPass"
             Name "GreenPass"
             GLSL
             {
-                #include "PrismCommon.glsl"
+                #include "PrismEngine.glsl"
 
                 attribute vec3 a_Position : POSITION;
                 attribute vec3 a_Normal : NORMAL;
 
-                VARYING VertexOutput
+                layout(location = 0) out vec4 FragColor;
+
+                varying VertexOutput
                 {
                     vec3 Normal;
                 } vs_Output;

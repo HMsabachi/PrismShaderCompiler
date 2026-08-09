@@ -18,7 +18,7 @@ Shader "Custom/FlatColor"
             Name "ForwardBase"
             GLSL
             {
-                #include "PrismCommon.glsl"
+                #include "PrismBuiltin.glsl"
                 #include "PrismUtility.glsl"
                 attribute vec3 aPos : POSITION;
                 attribute vec2 aUV : TEXCOORD0;

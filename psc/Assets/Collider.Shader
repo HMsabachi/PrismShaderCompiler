@@ -12,6 +12,8 @@ Shader "Debug/Collider"
         ZTest Off
         ZWrite Off
         Blend SrcAlpha OneMinusSrcAlpha
+        PolygonMode Line
+        LineWidth 3
     }
 
     SubShader
@@ -22,9 +24,11 @@ Shader "Debug/Collider"
             Name "ForwardBase"
             GLSL
             {
-                #include "PrismBuiltin.glsl"
+                #include "PrismEngine.glsl"
 
                 attribute vec3 a_Position : POSITION;
+
+                layout(location = 0) out vec4 FragColor;
 
                 void main()
                 {

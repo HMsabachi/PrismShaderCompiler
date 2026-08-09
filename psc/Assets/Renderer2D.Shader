@@ -21,7 +21,7 @@ Shader "Prism/Renderer2D"
 
             GLSL
             {
-                #include "PrismCommon.glsl"
+                #include "PrismEngine.glsl"
 
                 attribute vec3 a_Position : POSITION;
                 attribute vec4 a_Color : COLOR;
@@ -29,9 +29,11 @@ Shader "Prism/Renderer2D"
                 attribute float a_TexIndex : INDEX0;
                 attribute float a_TilingFactor : OTHER0;
 
-                layout(binding = 16) uniform sampler2D u_Textures[32];
+                layout(location = 0) out vec4 FragColor;
 
-                VARYING VertexOutput
+                layout(binding = 16) uniform sampler2D u_Textures[16];
+
+                varying VertexOutput
                 {
                     vec4 Color;
                     vec2 TexCoord;

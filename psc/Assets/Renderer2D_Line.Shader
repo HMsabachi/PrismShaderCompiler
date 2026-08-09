@@ -23,11 +23,13 @@ Shader "Prism/Renderer2D_Line"
 
             GLSL
             {
-                #include "PrismCommon.glsl"
+                #include "PrismEngine.glsl"
                 attribute vec3 a_Position : POSITION;
                 attribute vec4 a_Color : COLOR;
 
-                VARYING VertexOutput
+                layout(location = 0) out vec4 FragColor;
+
+                varying VertexOutput
                 {
                     vec4 Color;
                 } vs_Output;

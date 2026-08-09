@@ -15,12 +15,13 @@ Shader "Custom/SceneComposite"
             Name "ForwardBase"
             GLSL
             {
-                #include "PrismCommon.glsl"
+                #include "PrismEngine.glsl"
+                #include "Pass/CompositePass.glsl"
 
                 attribute vec3 a_Position : POSITION;
                 attribute vec2 a_TexCoord : TEXCOORD0;
 
-                VARYING VertexOutput
+                varying VertexOutput
                 {
                     vec2 TexCoord;
                 } vs_Output;

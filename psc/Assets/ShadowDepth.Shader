@@ -14,7 +14,7 @@ Shader "Hidden/ShadowDepth"
             Name "ShadowCaster"
             GLSL
             {
-                #include "PrismCommon.glsl"
+                #include "PrismBuiltin.glsl"
 
                 attribute vec3 a_Position : POSITION;
 
