@@ -154,6 +154,7 @@ namespace PrismShaderCompiler::IRGen
     {
         std::string head = "// " + std::string(glsl.Loc.FilePath) + "\n";
         head += "#version " + std::to_string(s_Config.GlslVersion) + " core\n";
+        head += "#define PRISM_VERTEX_SHADER 1\n";
 
         std::optional<VaryingSync> vSync;
         if (glsl.Varying)
@@ -184,6 +185,7 @@ namespace PrismShaderCompiler::IRGen
     {
         std::string head = "// " + std::string(glsl.Loc.FilePath) +"\n";
         head += "#version " + std::to_string(s_Config.GlslVersion) + " core\n";
+        head += "#define PRISM_FRAGMENT_SHADER 1\n";
         for (const auto& fragOut : glsl.FragmentOutputs)
             head += "layout(location = " + std::to_string(fragOut.Location) + ") out "
                   + std::string(GLSLTypeUtil::ToString(fragOut.Type)) + " " + fragOut.Name + ";\n";

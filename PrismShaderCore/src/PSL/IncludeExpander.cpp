@@ -67,7 +67,6 @@ static std::string expandInternal(std::string source,
         if (visiting.count(resolved))
         {
             PrismShaderCompiler::Log::Instance().Warn("IncludeExpander: 循环 include \"{}\"", includeName);
-            result += line + '\n';
             continue;
         }
 
