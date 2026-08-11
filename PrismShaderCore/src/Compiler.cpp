@@ -9,6 +9,7 @@
 #include "Generator/HLSLGenerator.h"
 #include "Generator/MSLGenerator.h"
 #include "Generator/ComputeIRGenerator.h"
+#include "Generator/ReflectionGenerator.h"
 #include "CSL/Parser.h"
 #include <algorithm>
 #include <exception>
@@ -219,6 +220,9 @@ namespace PrismShaderCompiler
 
         out.SpirvVertex = std::move(vsSPV.Bytecode);
         out.SpirvFragment = std::move(fsSPV.Bytecode);
+
+        if (!out.SpirvVertex.empty() && !out.SpirvFragment.empty())
+            out.Reflection = ReflectDescriptors(out.SpirvVertex, out.SpirvFragment);
 
         auto& log = Log::Instance();
         std::string shaderId = shader.ShaderName;

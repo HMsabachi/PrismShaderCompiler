@@ -5,6 +5,7 @@
 #include "PSL/AST.h"
 #include "CompilerCompute.h"
 #include "Pipeline/PipelineState.h"
+#include "Generator/ReflectionGenerator.h"
 
 #include <string>
 #include <vector>
@@ -47,6 +48,7 @@ namespace PrismShaderCompiler
         std::string FragmentShader;
         std::vector<uint32_t> SpirvVertex;
         std::vector<uint32_t> SpirvFragment;
+        PassReflection Reflection;
         std::vector<std::string> Errors;
         std::vector<std::string> Warnings;
     };
