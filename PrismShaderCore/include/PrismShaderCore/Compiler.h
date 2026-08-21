@@ -34,6 +34,7 @@ namespace PrismShaderCompiler
     {
         std::string ShaderName;
         int LOD = 200;
+        std::unordered_map<std::string, std::string> Tags;
 
         std::vector<AST::ShaderUniform> Uniforms;
         std::vector<PassInfo> Passes;

@@ -122,6 +122,7 @@ namespace PrismShaderCompiler::AST
     {
         std::string ShaderName;
         int LOD = 200;
+        std::unordered_map<std::string, std::string> Tags;
         std::vector<ShaderUniform> Uniforms;
         PropertyLayout MaterialLayout;
         std::optional<PipelineState> RenderState;

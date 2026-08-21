@@ -46,6 +46,13 @@ AST::ShaderDocument Parser::ParseShader()
                     Advance();
                     doc.LOD = TokenInt(ConsumeNumber("期望 LOD 数值"));
                 }
+                else if (Check(TokenType::TagsKw))
+                {
+                    Advance();
+                    Consume(TokenType::LeftBrace, "期望 '{'");
+                    ParseTags(doc.Tags);
+                    Consume(TokenType::RightBrace, "期望 '}'");
+                }
                 else if (Check(TokenType::PassKw))
                 {
                     Advance();
@@ -74,7 +81,7 @@ AST::ShaderDocument Parser::ParseShader()
                 }
                 else
                 {
-                    Error("SubShader 内期望 'Pass', 'UsePass' 或 'RenderCommand'");
+                    Error("SubShader 内期望 'LOD', 'Tags', 'Pass', 'UsePass' 或 'RenderCommand'");
                     Advance();
                 }
             }

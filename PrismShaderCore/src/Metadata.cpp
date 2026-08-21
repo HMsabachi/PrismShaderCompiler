@@ -94,6 +94,7 @@ namespace PrismShaderCompiler
 
         j["name"] = shader.ShaderName;
         j["lod"]  = shader.LOD;
+        j["tags"] = shader.Tags;
 
         auto jrs = SerializeRenderState(shader.RenderState);
         if (!jrs.empty()) j["renderState"] = std::move(jrs);

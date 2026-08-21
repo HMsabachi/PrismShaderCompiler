@@ -60,6 +60,7 @@ namespace PrismShaderCompiler
 
         result.ShaderName = std::move(doc.ShaderName);
         result.LOD = doc.LOD;
+        result.Tags = std::move(doc.Tags);
         result.Uniforms = std::move(doc.Uniforms);
         result.MaterialLayout = std::move(doc.MaterialLayout);
         result.RenderState = doc.RenderState;
