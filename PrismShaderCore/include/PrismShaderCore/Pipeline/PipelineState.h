@@ -1,7 +1,6 @@
 ﻿#pragma once
 
 #include <cstdint>
-#include <string>
 
 namespace PrismShaderCompiler
 {
@@ -135,12 +134,15 @@ struct PipelineState
     float LineWidth = 1.0f;
 
     uint32_t SetFlags = 0;
+    uint64_t Hash = 0;
 
     void Mark(Field f) { SetFlags |= static_cast<uint32_t>(f); }
     bool IsSet(Field f) const { return (SetFlags & static_cast<uint32_t>(f)) != 0; }
 
     void Merge(const PipelineState& passState);
     static PipelineState Default();
+
+    uint64_t CalculateHash();
 };
 
 } // namespace PrismShaderCompiler

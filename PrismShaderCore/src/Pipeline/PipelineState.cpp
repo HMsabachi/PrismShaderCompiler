@@ -1,4 +1,5 @@
-#include "Pipeline/PipelineState.h"
+﻿#include "Pipeline/PipelineState.h"
+#include <functional>
 
 namespace PrismShaderCompiler
 {
@@ -6,6 +7,39 @@ namespace PrismShaderCompiler
 PipelineState PipelineState::Default()
 {
     return PipelineState{};
+}
+
+
+uint64_t PipelineState::CalculateHash()
+{
+	Hash = 14695981039346656037ULL;
+	auto combine = [this](auto v)
+		{
+			Hash ^= std::hash<decltype(v)>{}(v)+0x9e3779b9 + (Hash << 6) + (Hash >> 2);
+		};
+	combine(BlendEnabled);
+	combine(SrcFactor);
+	combine(DstFactor);
+	combine(SrcAlpha);
+	combine(DstAlpha);
+	combine(DepthTest);
+	combine(DepthWrite);
+	combine(DepthCompare);
+	combine(WriteMask);
+	combine(DepthBiasFactor);
+	combine(DepthBiasUnits);
+	combine(Cull);
+	combine(StencilTest);
+	combine(StencilCompare);
+	combine(StencilRef);
+	combine(StencilReadMask);
+	combine(StencilWriteMask);
+	combine(StencilFailOp);
+	combine(StencilDepthFailOp);
+	combine(StencilPassOp);
+	combine(FillMode);
+	combine(LineWidth);
+	return Hash;
 }
 
 void PipelineState::Merge(const PipelineState& passState)
