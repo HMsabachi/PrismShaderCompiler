@@ -14,33 +14,10 @@ namespace PrismShaderCompiler
             switch (model)
             {
             case spv::ExecutionModelVertex:    return 0x00000001;
-            case spv::ExecutionModelFragment:  return 0x00000004;
+            case spv::ExecutionModelFragment:  return 0x00000010;
             case spv::ExecutionModelGLCompute: return 0x00000020;
             default:                           return 0;
             }
-        }
-
-        DescriptorKind ResourceTypeToKind(const spirv_cross::Resource& res,
-            const spirv_cross::Compiler& compiler)
-        {
-            const auto& type = compiler.get_type_from_variable(res.id);
-            if (type.basetype == spirv_cross::SPIRType::Struct)
-            {
-                if (type.storage == spv::StorageClassStorageBuffer)
-                    return DescriptorKind::StorageBuffer;
-                return DescriptorKind::UniformBuffer;
-            }
-            if (type.basetype == spirv_cross::SPIRType::Image)
-            {
-                if (type.image.sampled == 2)
-                    return DescriptorKind::StorageImage;
-                return DescriptorKind::Sampler;
-            }
-            if (type.basetype == spirv_cross::SPIRType::SampledImage)
-                return DescriptorKind::Sampler;
-            if (type.basetype == spirv_cross::SPIRType::Sampler)
-                return DescriptorKind::Sampler;
-            return DescriptorKind::UniformBuffer;
         }
 
         void ReflectStage(const std::vector<uint32_t>& spirv, uint32_t stageFlag,
@@ -59,7 +36,7 @@ namespace PrismShaderCompiler
             }
 
             auto addResources = [&](const spirv_cross::SmallVector<spirv_cross::Resource>& resources,
-                DescriptorKind fallbackKind)
+                DescriptorKind kind)
             {
                 for (const auto& res : resources)
                 {
@@ -73,7 +50,7 @@ namespace PrismShaderCompiler
                         DescriptorInfo info;
                         info.Set = set;
                         info.Binding = binding;
-                        info.Kind = ResourceTypeToKind(res, compiler);
+                        info.Kind = kind;
                         info.StageFlags = stageFlagFinal;
                         info.Name = res.name;
                         if (info.Kind == DescriptorKind::UniformBuffer ||
