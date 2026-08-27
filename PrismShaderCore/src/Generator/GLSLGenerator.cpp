@@ -12,6 +12,7 @@ static std::string Decompile(const std::vector<uint32_t>& spirv)
     spirv_cross::CompilerGLSL::Options opts;
     opts.version = 450;
     opts.es = false;
+    opts.vertex.fixup_clipspace = true;
     compiler.set_common_options(opts);
 
     return compiler.compile();
