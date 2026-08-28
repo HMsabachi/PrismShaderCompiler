@@ -78,15 +78,9 @@ namespace PrismShaderCompiler
         }
     }
 
-    PassReflection PSC_API ReflectDescriptors(const std::vector<uint32_t>& vsSpirv,
-        const std::vector<uint32_t>& fsSpirv)
+    static PassReflection FinalizeReflection(std::unordered_map<uint64_t, DescriptorInfo>& merged)
     {
         PassReflection result;
-        std::unordered_map<uint64_t, DescriptorInfo> merged;
-
-        ReflectStage(vsSpirv, 0x00000001, merged);
-        ReflectStage(fsSpirv, 0x00000004, merged);
-
         result.Descriptors.reserve(merged.size());
         for (auto& [_, info] : merged)
             result.Descriptors.push_back(std::move(info));
@@ -99,6 +93,26 @@ namespace PrismShaderCompiler
             });
 
         return result;
+    }
+
+    PassReflection PSC_API ReflectDescriptors(const std::vector<uint32_t>& vsSpirv,
+        const std::vector<uint32_t>& fsSpirv)
+    {
+        std::unordered_map<uint64_t, DescriptorInfo> merged;
+
+        ReflectStage(vsSpirv, 0x00000001, merged);
+        ReflectStage(fsSpirv, 0x00000004, merged);
+
+        return FinalizeReflection(merged);
+    }
+
+    PassReflection PSC_API ReflectCompute(const std::vector<uint32_t>& computeSpirv)
+    {
+        std::unordered_map<uint64_t, DescriptorInfo> merged;
+
+        ReflectStage(computeSpirv, 0x00000020, merged);
+
+        return FinalizeReflection(merged);
     }
 
 } // namespace PrismShaderCompiler

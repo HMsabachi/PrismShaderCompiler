@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "CSL/AST.h"
+#include "Generator/ReflectionGenerator.h"
 
 #include <string>
 #include <vector>
@@ -49,6 +50,7 @@ struct ComputeKernelOutput
 {
     std::string Source;
     std::vector<uint32_t> Spirv;
+    PassReflection Reflection;
     std::vector<std::string> Errors;
     std::vector<std::string> Warnings;
 };

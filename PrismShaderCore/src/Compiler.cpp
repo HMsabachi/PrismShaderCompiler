@@ -439,6 +439,8 @@ namespace PrismShaderCompiler
         out.Spirv = std::move(spv.Bytecode);
         out.Errors = std::move(spv.Errors);
         out.Warnings = std::move(spv.Warnings);
+        if (!out.Spirv.empty())
+            out.Reflection = ReflectCompute(out.Spirv);
         return out;
     }
 

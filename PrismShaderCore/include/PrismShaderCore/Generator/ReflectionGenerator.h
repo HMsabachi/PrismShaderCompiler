@@ -36,4 +36,6 @@ struct PassReflection
 PassReflection PSC_API ReflectDescriptors(const std::vector<uint32_t>& vsSpirv,
     const std::vector<uint32_t>& fsSpirv);
 
+PassReflection PSC_API ReflectCompute(const std::vector<uint32_t>& computeSpirv);
+
 } // namespace PrismShaderCompiler
