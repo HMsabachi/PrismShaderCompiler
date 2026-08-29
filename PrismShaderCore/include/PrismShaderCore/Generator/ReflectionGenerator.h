@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "../Base.h"
 #include <string>
@@ -22,10 +22,10 @@ struct DescriptorInfo
 {
     uint32_t Set = 0;
     uint32_t Binding = 0;
-    DescriptorKind Kind = DescriptorKind::UniformBuffer;
     uint32_t StageFlags = 0;
-    std::string Name;
     uint32_t Size = 0;
+    DescriptorKind Kind = DescriptorKind::UniformBuffer;
+    char Name[47] = { 0 };
 };
 
 struct PassReflection

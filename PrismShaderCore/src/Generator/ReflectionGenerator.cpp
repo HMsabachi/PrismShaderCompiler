@@ -1,4 +1,4 @@
-#include "Generator/ReflectionGenerator.h"
+﻿#include "Generator/ReflectionGenerator.h"
 
 #include <spirv_cross.hpp>
 #include <algorithm>
@@ -52,7 +52,7 @@ namespace PrismShaderCompiler
                         info.Binding = binding;
                         info.Kind = kind;
                         info.StageFlags = stageFlagFinal;
-                        info.Name = res.name;
+                        strncpy(info.Name, res.name.c_str(), sizeof(info.Name) - 1);
                         if (info.Kind == DescriptorKind::UniformBuffer ||
                             info.Kind == DescriptorKind::StorageBuffer)
                         {
