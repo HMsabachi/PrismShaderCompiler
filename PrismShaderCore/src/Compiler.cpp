@@ -3,7 +3,7 @@
 #include "PSL/TokenStream.h"
 #include "PSL/Parser.h"
 #include "PSL/Diagnostics.h"
-#include "Generator/IRGenerator.h"
+#include "Inner/InnerCompiler.h"
 #include "Generator/SpirvGenerator.h"
 #include "Generator/GLSLGenerator.h"
 #include "Generator/HLSLGenerator.h"
@@ -19,18 +19,58 @@
 namespace PrismShaderCompiler
 {
 
+namespace
+{
+
+// 内层编译器只吃「GLSL 块 + Properties + 路径」，外层把 Pass 上的这部分切出来给它。
+void FillInnerParams(InnerParams& params, const CompiledShader& shader, uint32_t passIndex,
+                     const CompilerConfig& config)
+{
+    const AST::GLSLCode& glsl = shader.Passes[passIndex].Glsl;
+
+    params.GlslBlock = glsl.RawSource;
+
+    const ReadFileCallback readFile = config.ReadFile;
+    params.ReadFile = [readFile](const std::string& path, std::string& out)
+    {
+        out = readFile(path);
+        return !out.empty();
+    };
+
+    for (const AST::ShaderUniform& uniform : shader.Uniforms)
+    {
+        InnerProperty property;
+        property.Name = uniform.Name;
+        property.Type = uniform.Type;
+        property.TextureSlot = static_cast<uint32_t>(uniform.TextureSlot < 0 ? 0 : uniform.TextureSlot);
+        params.Properties.push_back(std::move(property));
+    }
+
+    InnerConfig& inner = params.Config;
+    inner.SourcePath = glsl.Loc.FilePath;
+    inner.IncludeRoot = config.IncludeRoot;
+    inner.GlslVersion = config.GlslVersion;
+    inner.MaterialBlockName = config.MaterialBlockName;
+    inner.OpenGLMaterialUniformBufferBinding = config.OpenGLMaterialUniformBufferBinding;
+    inner.OpenGLTextureBeginBinding = config.OpenGLTextureBeginBinding;
+    inner.VulkanMaterialUniformBufferSet = config.VulkanMaterialUniformBufferSet;
+    inner.VulkanMaterialUniformBufferBinding = config.VulkanMaterialUniformBufferBinding;
+    inner.VulkanTextureBeginSet = config.VulkanTextureBeginSet;
+    inner.VulkanTextureBeginBinding = config.VulkanTextureBeginBinding;
+}
+
+} // namespace
+
     ShaderCompiler::ShaderCompiler(const CompilerConfig& config)
         : m_Config(config)
     {
         Log::Instance().SetCallback(config.OnLog);
-        IRGen::SetConfig(config);
     }
 
     void ShaderCompiler::SetConfig(const CompilerConfig& config)
     {
         m_Config = config;
         Log::Instance().SetCallback(config.OnLog);
-        IRGen::SetConfig(config);
     }
 
     CompiledShader ShaderCompiler::Compile(const std::string& source,
@@ -210,14 +250,32 @@ namespace PrismShaderCompiler
             return out;
         }
 
-        auto glsl = IRGen::Generate(shader.Passes[passIndex].Glsl,
-            shader.Uniforms,
-            shader.ShaderName,
-            keywords,
-            backend);
+        InnerParams inner;
+        FillInnerParams(inner, shader, passIndex, m_Config);
 
-        auto vsSPV = CompileGLSL(glsl.Vertex, ShaderStageType::Vertex, backend);
-        auto fsSPV = CompileGLSL(glsl.Fragment, ShaderStageType::Fragment, backend);
+        DiagnosticCollector diag;
+        InnerCompiler compiler(diag);
+        InnerResult ir = compiler.Compile(inner);
+
+        for (const Diagnostic& d : diag.GetDiagnostics())
+        {
+            if (d.Level == Severity::Warning)
+            {
+                Log::Instance().Warn("{}", d.Message);
+                out.Warnings.push_back(d.Message);
+            }
+            else
+            {
+                Log::Instance().Error("{}", d.Message);
+                out.Errors.push_back(d.Message);
+            }
+        }
+
+        if (!ir.Success)
+            return out;
+
+        auto vsSPV = CompileGLSL(ir.VertexGlsl, ShaderStageType::Vertex, backend, keywords);
+        auto fsSPV = CompileGLSL(ir.FragmentGlsl, ShaderStageType::Fragment, backend, keywords);
 
         out.SpirvVertex = std::move(vsSPV.Bytecode);
         out.SpirvFragment = std::move(fsSPV.Bytecode);
@@ -248,13 +306,26 @@ namespace PrismShaderCompiler
                 passIndex, shader.Passes.size());
             return out;
         }
-        auto glsl = IRGen::Generate(shader.Passes[passIndex].Glsl,
-            shader.Uniforms,
-            shader.ShaderName,
-            keywords,
-            TargetBackend::OpenGL);
-        out.VertexShader = std::move(glsl.Vertex);
-        out.FragmentShader = std::move(glsl.Fragment);
+        InnerParams inner;
+        FillInnerParams(inner, shader, passIndex, m_Config);
+
+        DiagnosticCollector diag;
+        InnerCompiler compiler(diag);
+        InnerResult ir = compiler.Compile(inner);
+
+        for (const Diagnostic& d : diag.GetDiagnostics())
+        {
+            if (d.Level == Severity::Warning)
+                out.Warnings.push_back(d.Message);
+            else
+                out.Errors.push_back(d.Message);
+        }
+
+        if (!ir.Success)
+            return out;
+
+        out.VertexShader = std::move(ir.VertexGlsl);
+        out.FragmentShader = std::move(ir.FragmentGlsl);
         return out;
     }
 

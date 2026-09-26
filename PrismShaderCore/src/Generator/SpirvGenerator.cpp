@@ -28,7 +28,8 @@ namespace PrismShaderCompiler
         }
     }
 
-    SpirvResult PSC_API CompileGLSL(const std::string& glslSource, ShaderStageType stage, TargetBackend backend)
+    SpirvResult PSC_API CompileGLSL(const std::string& glslSource, ShaderStageType stage,
+                                    TargetBackend backend, const std::vector<std::string>& keywords)
     {
         SpirvResult result;
         EnsureInitialized();
@@ -49,7 +50,17 @@ namespace PrismShaderCompiler
             shader.setEnvClient(glslang::EShClientOpenGL, glslang::EShTargetOpenGL_450);
         }
         shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_0);
-        shader.setPreamble("#extension GL_GOOGLE_cpp_style_line_directive : enable\n");
+
+        // preamble 在 #version 之前处理，但不影响 #version 的合法性（glslang 明文保证）
+        std::string preamble = "#extension GL_GOOGLE_cpp_style_line_directive : enable\n";
+        preamble += (backend == TargetBackend::Vulkan)
+            ? "#define PRISM_BACKEND_VULKAN 1\n"
+            : "#define PRISM_BACKEND_OPENGL 1\n";
+
+        for (const std::string& keyword : keywords)
+            preamble += "#define " + keyword + "\n";
+
+        shader.setPreamble(preamble.c_str());
 
         TBuiltInResource resources = *GetDefaultResources();
         EShMessages messages = EShMsgDefault;

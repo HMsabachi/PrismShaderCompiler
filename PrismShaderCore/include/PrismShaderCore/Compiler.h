@@ -54,8 +54,6 @@ namespace PrismShaderCompiler
         std::vector<std::string> Warnings;
     };
 
-    enum class TargetBackend : uint8_t;
-
     struct CompilerConfig
     {
         LogCallback OnLog = Callbacks::NullLog;

@@ -21,4 +21,10 @@ namespace PrismShaderCompiler
         Compute,
     };
 
+    enum class TargetBackend : uint8_t
+    {
+        OpenGL,
+        Vulkan,
+    };
+
 } // namespace PrismShaderCompiler

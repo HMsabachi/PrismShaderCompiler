@@ -1,5 +1,4 @@
 ﻿#include "PSL/Parser.h"
-#include "PSL/GLSLType.h"
 #include "Log.h"
 
 namespace PrismShaderCompiler
@@ -136,13 +135,6 @@ void Parser::Error(const std::string& msg)
     if (m_Diag) m_Diag->Error(msg, loc, lineText);
     auto& log = PrismShaderCompiler::Log::Instance();
     log.Error("{}", FormatDiagnostic(Severity::Error, loc, msg, lineText, tokLen));
-}
-
-Token Parser::ConsumeType(const std::string& errMsg)
-{
-    if (GLSLTypeUtil::IsTypeToken(Current().Type)) return Advance();
-    Error(errMsg);
-    return Current();
 }
 
 // Token 文本取值
@@ -622,265 +614,78 @@ void Parser::ParseTags(std::unordered_map<std::string, std::string>& tags)
 void Parser::ParseGLSLBlock(AST::GLSLCode& glsl)
 {
     glsl.Loc = CurrentLoc();
+    const uint32_t rawStart = Current().Offset;
+
     int depth = 1;
-    uint32_t nextID = 0;
-    uint32_t sharedStart = Current().Offset;
 
     while (!IsAtEnd() && depth > 0)
     {
         if (Check(TokenType::PreprocessDirective))
         {
-            std::string dir = TokenStr(Current());
-            if (dir == "#pragma" || dir == "#include")
-            {
-                FlushSharedChunk(glsl.SharedSource, sharedStart);
-                ParseGLSLDirective(glsl, nextID++);
-                sharedStart = Current().Offset;
-            }
-            else
-            {
-                Advance();
-            }
+            ParseGLSLDirective(glsl);
+            continue;
         }
-        else if (Check(TokenType::AttributeKw))
-        {
-            FlushSharedChunk(glsl.SharedSource, sharedStart);
-            ParseGLSLAttribute(glsl, nextID++);
-            sharedStart = Current().Offset;
-        }
-        else if (Check(TokenType::VaryingKw))
-        {
-            FlushSharedChunk(glsl.SharedSource, sharedStart);
-            ParseGLSLVarying(glsl, nextID++);
-            sharedStart = Current().Offset;
 
-        }
-        else if (Check(TokenType::VoidGLSLKw))
-        {
-            FlushSharedChunk(glsl.SharedSource, sharedStart);
-            ParserGLSLVoid(glsl);
-            sharedStart = Current().Offset;
-        }
-        else if (Check(TokenType::LayoutKw))
-        {
-            ParseGLSLLayout(glsl, nextID++, sharedStart);
-        }
-        else if (Check(TokenType::LeftBrace))
+        if (Check(TokenType::LeftBrace))
         {
             Advance();
-            depth++;
+            ++depth;
         }
         else if (Check(TokenType::RightBrace))
         {
-            depth--;
+            --depth;
+
             if (depth == 0)
             {
-                FlushSharedChunk(glsl.SharedSource, sharedStart);
+                const uint32_t rawEnd = Current().Offset;
+
+                if (rawEnd > rawStart)
+                    glsl.RawSource = std::string(m_Stream.GetSM().GetView(rawStart, rawEnd - rawStart));
+
                 break;
             }
+
             Advance();
         }
         else
         {
-            Token t = Advance();
-        }
-    }
-}
-
-void Parser::ParserGLSLVoid(AST::GLSLCode& glsl)
-{
-    Token next = PeekToken(1);
-    if (next.IsNot(TokenType::VertKw) && next.IsNot(TokenType::FragKw))
-    {
-        Advance(); // void
-        return;
-    }
-    bool isVert = next.Is(TokenType::VertKw);
-    Advance(); // void
-    Advance(); // vert / frag
-    Consume(TokenType::LeftParen, "期望 '('");
-    Consume(TokenType::RightParen, "期望 ')'");
-    Token openBrace = Consume(TokenType::LeftBrace, "期望 '{'");
-    int funcDepth = 1;
-    while (!IsAtEnd() && funcDepth > 0)
-    {
-        Token ft = Advance();
-        if (ft.Is(TokenType::LeftBrace))
-        {
-            funcDepth++;
-            (isVert ? glsl.Vertex : glsl.Fragment).LocBegin = CurrentLoc();
-        }
-        else if (ft.Is(TokenType::RightBrace))
-        {
-            funcDepth--;
-            (isVert ? glsl.Vertex : glsl.Fragment).LocEnd = m_Stream.GetSM().GetLocation(PeekToken(-1).Offset);
-            if (funcDepth == 0)
-            {
-                std::string& target = isVert ? glsl.Vertex.Source : glsl.Fragment.Source;
-                uint32_t bodyStart = openBrace.Offset + openBrace.Length;
-                uint32_t bodyLen = ft.Offset - bodyStart;
-                target = std::string(m_Stream.GetSM().GetView(bodyStart, bodyLen));
-                break;
-            }
-        }
-    }
-}
-
-void Parser::ParseGLSLAttribute(AST::GLSLCode& glsl, uint32_t id)
-{
-    glsl.SharedSource += "[Prism::Insert:" + std::to_string(id) + "]";
-    Advance();
-    AST::VertexAttribute attr;
-    attr.InsertID = id;
-    attr.Loc = CurrentLoc();
-    attr.Type = GLSLTypeUtil::FromTokenType(ConsumeType("期望 attribute 类型").Type);
-    attr.Name = TokenStr(Consume(TokenType::Identifier, "期望 attribute 名称"));
-    Consume(TokenType::Colon, "期望 ':'");
-    attr.Semantic = PrismShaderCompiler::ParseVertexSemantic(TokenStr(Consume(TokenType::Identifier, "期望语义名称")));
-    Consume(TokenType::Semicolon, "期望 ';'");
-    glsl.Attributes.push_back(attr);
-}
-
-void Parser::ParseGLSLVarying(AST::GLSLCode& glsl, uint32_t id)
-{
-    if (glsl.Varying)
-    {
-        Error("一个 Pass 只允许一个 varying 结构体");
-        Advance(); // varying
-        SkipTo(TokenType::Semicolon);
-        if (Check(TokenType::Semicolon)) Advance();
-        return;
-    }
-    glsl.SharedSource += "[Prism::Insert:" + std::to_string(id) + "]";
-    Advance(); // varying 
-    AST::VaryingBlock block;
-    block.InsertID = id;
-    block.Loc = CurrentLoc();
-    block.StructName = TokenStr(Consume(TokenType::Identifier, "期望结构体名"));
-    Consume(TokenType::LeftBrace, "期望 '{'");
-    while (!Check(TokenType::RightBrace) && !IsAtEnd())
-    {
-        if (!GLSLTypeUtil::IsTypeToken(Current().Type))
-        {
-            Error("varying 成员格式错误，期望类型名");
-            SkipTo(TokenType::Semicolon);
-            if (Check(TokenType::Semicolon)) Advance();
-            continue;
-        }
-        GLSLType memberType = GLSLTypeUtil::FromTokenType(ConsumeType("期望成员类型").Type);
-        std::string memberName = TokenStr(Advance());
-        uint32_t memberArraySize = 1;
-        if (Check(TokenType::LeftBracket))
-        {
             Advance();
-            memberArraySize = (uint32_t)TokenInt(Consume(TokenType::IntegerLiteral, "期望数组大小"));
-            Consume(TokenType::RightBracket, "期望 ']'");
         }
-        Consume(TokenType::Semicolon, "期望 ';'");
-        block.Members.push_back({ memberType, memberName, memberArraySize });
     }
-    Consume(TokenType::RightBrace, "期望 '}'");
-    block.InstanceName = TokenStr(Consume(TokenType::Identifier, "期望实例名"));
-    Consume(TokenType::Semicolon, "期望 ';'");
-    glsl.Varying = block;
 }
 
-void Parser::ParseGLSLLayout(AST::GLSLCode& glsl, uint32_t id, uint32_t& start)
+void Parser::ParseGLSLDirective(AST::GLSLCode& glsl)
 {
-    if (PeekToken(1).Is(TokenType::LeftParen) &&
-        PeekToken(2).Is(TokenType::LocationKw) &&
-        PeekToken(3).Is(TokenType::Equals) &&
-        PeekToken(4).Is(TokenType::IntegerLiteral) &&
-        PeekToken(5).Is(TokenType::RightParen) &&
-        PeekToken(6).Is(TokenType::OutKw))
+    const std::string dir = TokenStr(Advance());
+
+    if (dir != "#pragma")
+        return;
+
+    AST::PragmaDef pragma;
+    pragma.Loc = CurrentLoc();
+
+    if (Check(TokenType::ShaderFeatureKw))
     {
-        FlushSharedChunk(glsl.SharedSource, start);
         Advance();
-        glsl.SharedSource += "[Prism::Insert:" + std::to_string(id) + "]";
-
-        AST::FragmentOutput fragOut;
-        fragOut.InsertID = id;
-        fragOut.Loc = CurrentLoc();
-
-        Consume(TokenType::LeftParen, "期望 '('");
-        Consume(TokenType::LocationKw, "期望 'location'");
-        Consume(TokenType::Equals, "期望 '='");
-        fragOut.Location = TokenInt(Consume(TokenType::IntegerLiteral, "期望整数"));
-        Consume(TokenType::RightParen, "期望 ')'");
-        Consume(TokenType::OutKw, "期望 'out'");
-
-        Token typeToken = ConsumeType("期望输出类型");
-        fragOut.Type = GLSLTypeUtil::FromTokenType(typeToken.Type);
-        fragOut.Name = TokenStr(Consume(TokenType::Identifier, "期望变量名"));
-        Consume(TokenType::Semicolon, "期望 ';'");
-
-        glsl.FragmentOutputs.push_back(fragOut);
-        start = Current().Offset;
+        pragma.IsShaderFeature = true;
+    }
+    else if (Check(TokenType::MultiCompileKw))
+    {
+        Advance();
+        pragma.IsMultiCompile = true;
     }
     else
     {
-        Advance();
+        return;
     }
+
+    const uint32_t pragmaLine = CurrentLoc().Line;
+
+    while (Check(TokenType::Identifier) && CurrentLoc().Line == pragmaLine)
+        pragma.Keywords.push_back(TokenStr(Advance()));
+
+    if (!pragma.Keywords.empty())
+        glsl.Pragmas.push_back(std::move(pragma));
 }
 
-void Parser::ParseGLSLDirective(AST::GLSLCode& glsl, uint32_t id)
-{
-    std::string dir = TokenStr(Advance());
-
-    if (dir == "#include")
-    {
-        glsl.Includes.push_back({TokenStr(Consume(TokenType::StringLiteral, "期望 include 路径")), id, CurrentLoc()});
-        glsl.SharedSource += "[Prism::Insert:" + std::to_string(id) + "]";
-    }
-    else if (dir == "#pragma")
-    {
-        AST::PragmaDef pragma;
-        pragma.InsertID = id;
-        pragma.Loc = CurrentLoc();
-        if (Check(TokenType::ShaderFeatureKw))
-        {
-            Advance();
-            pragma.IsShaderFeature = true;
-        }
-        else if (Check(TokenType::MultiCompileKw))
-        {
-            Advance();
-            pragma.IsMultiCompile = true;
-        }
-        else
-        {
-            Advance();
-            return;
-        }
-        uint32_t pragmaLine = CurrentLoc().Line;
-        while (Check(TokenType::Identifier) && CurrentLoc().Line == pragmaLine)
-            pragma.Keywords.push_back(TokenStr(Advance()));
-        if (!pragma.Keywords.empty())
-            glsl.Pragmas.push_back(pragma);
-        glsl.SharedSource += "[Prism::Insert:" + std::to_string(id) + "]";
-    }
-}
-void Parser::FlushSharedChunk(std::string& out, uint32_t& start)
-{
-    uint32_t current = m_Stream.Current().Offset;
-    if (current > start)
-    {
-        auto view = m_Stream.GetSM().GetView(start, current - start);
-        out += std::string(m_Stream.GetSM().GetView(start, current - start));
-        start = current;
-    }
-}
-
-void Parser::AppendTokenText(std::string& out, const Token& t)
-{
-    auto text = TokenText(t);
-    out.append(text.data(), text.size());
-    out += (t.Is(TokenType::Semicolon) || t.Is(TokenType::LeftBrace)) ? '\n' : ' ';
-}
-
-void Parser::SkipTo(TokenType type)
-{
-    while (!IsAtEnd() && !Check(type))
-        Advance();
-}
 } // namespace PrismShaderCompiler

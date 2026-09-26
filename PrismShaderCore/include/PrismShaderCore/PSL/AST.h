@@ -5,8 +5,6 @@
 #include "../Pipeline/PipelineState.h"
 #include "Scalar.h"
 #include "../Property/PropertyLayout.h"
-#include "../Property/VertexType.h"
-#include "GLSLType.h"
 
 #include <string>
 #include <vector>
@@ -17,75 +15,19 @@
 namespace PrismShaderCompiler::AST
 {
 
-    struct VertexAttribute
-    {
-        GLSLType Type = GLSLType::None;
-        std::string Name;
-        PrismShaderCompiler::VertexSemantic Semantic;
-        uint32_t InsertID = 0;
-        SourceLocation Loc;
-    };
-
-    struct VaryingMember
-    {
-        GLSLType Type = GLSLType::None;
-        std::string Name;
-        uint32_t ArraySize = 1;
-    };
-
-    struct VaryingBlock
-    {
-        std::string StructName;
-        std::string InstanceName;
-        std::vector<VaryingMember> Members;
-        uint32_t InsertID = 0;
-        SourceLocation Loc;
-    };
-
     struct PragmaDef
     {
         bool IsMultiCompile = false;
         bool IsShaderFeature = false;
         std::vector<std::string> Keywords;
-        uint32_t InsertID = 0;
-        SourceLocation Loc;
-    };
-
-    struct EntryPointSource
-    {
-        std::string Source;
-        SourceLocation LocBegin;
-        SourceLocation LocEnd;
-    };
-
-    struct IncludeDef
-    {
-        std::string Path;
-        uint32_t InsertID = 0;
-        SourceLocation Loc;
-    };
-
-    struct FragmentOutput
-    {
-        GLSLType Type = GLSLType::None;
-        std::string Name;
-        int Location = 0;
-        uint32_t InsertID = 0;
         SourceLocation Loc;
     };
 
     struct GLSLCode
     {
-        std::string SharedSource;
-        EntryPointSource Vertex;
-        EntryPointSource Fragment;
+        std::string RawSource;
         SourceLocation Loc;
-
-        std::vector<VertexAttribute> Attributes;
-        std::optional<VaryingBlock> Varying;
         std::vector<PragmaDef> Pragmas;
-        std::vector<IncludeDef> Includes;
-        std::vector<FragmentOutput> FragmentOutputs;
     };
 
     struct ShaderUniform

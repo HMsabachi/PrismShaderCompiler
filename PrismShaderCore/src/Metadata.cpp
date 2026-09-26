@@ -1,6 +1,5 @@
 ﻿#include "Metadata.h"
 #include "PSL/GLSLType.h"
-#include "Property/VertexType.h"
 #include <json/json.hpp>
 
 namespace PrismShaderCompiler
@@ -112,61 +111,6 @@ namespace PrismShaderCompiler
             jp["tags"] = p.Tags;
             auto jprs = SerializeRenderState(p.RenderState);
             if (!jprs.empty()) jp["renderState"] = std::move(jprs);
-
-            {
-                auto& glsl = p.Glsl;
-
-                auto& jattrs = jp["attributes"] = nlohmann::json::array();
-                for (auto& attr : glsl.Attributes)
-                {
-                    nlohmann::json ja;
-                    ja["name"]     = attr.Name;
-                    ja["type"]     = GLSLTypeUtil::ToString(attr.Type);
-                    ja["semantic"] = (int)attr.Semantic;
-                    ja["location"] = SemanticToLocation(attr.Semantic);
-                    jattrs.push_back(std::move(ja));
-                }
-
-                if (glsl.Varying)
-                {
-                    auto& v = *glsl.Varying;
-                    auto& jv = jp["varying"];
-                    jv["struct"] = v.StructName;
-                    jv["instance"] = v.InstanceName;
-                    auto& jmembers = jv["members"] = nlohmann::json::array();
-                    uint32_t loc = 0;
-                    for (auto& m : v.Members)
-                    {
-                        bool isMat = GLSLTypeUtil::IsMatrixType(m.Type);
-                        uint32_t cols = isMat ? GLSLTypeUtil::LocationSlots(m.Type) : 1;
-                        uint32_t slots = cols * m.ArraySize;
-
-                        nlohmann::json jm;
-                        jm["name"] = m.Name;
-                        jm["type"] = GLSLTypeUtil::ToString(m.Type);
-                        if (m.ArraySize > 1) jm["arraySize"] = m.ArraySize;
-                        jm["location"] = loc;
-                        jm["slots"] = slots;
-                        if (isMat) jm["columnType"] = GLSLTypeUtil::ToString(GLSLTypeUtil::ColumnType(m.Type));
-                        loc += slots;
-                        jmembers.push_back(std::move(jm));
-                    }
-                }
-
-                auto& fragOutputs = glsl.FragmentOutputs;
-                if (!fragOutputs.empty())
-                {
-                    auto& jouts = jp["outputs"] = nlohmann::json::array();
-                    for (auto& fo : fragOutputs)
-                    {
-                        nlohmann::json jo;
-                        jo["name"]     = fo.Name;
-                        jo["location"] = fo.Location;
-                        jo["type"]     = GLSLTypeUtil::ToString(fo.Type);
-                        jouts.push_back(std::move(jo));
-                    }
-                }
-            }
 
             jpasses.push_back(std::move(jp));
         }
