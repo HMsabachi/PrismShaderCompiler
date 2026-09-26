@@ -14,7 +14,7 @@ CSL 是 Prism 引擎的计算着色器描述语言，文件扩展名 `.ComputeSh
 #pragma kernel KernelName [VariantDefines...]
 
 layout(...) uniform sampler/image/buffer 资源;
-layout(location = N) uniform 类型 u_Param;
+uniform 类型 u_Param;
 
 // 共享代码（函数、常量、结构体等，所有 kernel 可见）
 
@@ -148,20 +148,35 @@ layout(std430, binding = 0) buffer ParticleBuffer
 
 ## 5. 普通 Uniform
 
-普通（非资源）uniform 必须带 `layout(location = N)`：
+数值 uniform（`bool` / `int` / `uint` / `float`，以及 `bvec` / `ivec` / `uvec` / `vec` 的 2~4 宽度版本）直接声明，不带 layout：
 
 ```glsl
-layout(location = 0) uniform float u_Roughness;
-layout(location = 1) uniform vec3 u_Color;
+uniform float u_Roughness;
+uniform vec3 u_Color;
+uniform ivec3 u_Offset;
 ```
 
-**裸 `uniform`（无 layout）会报错**：
+两种后端的落地方式不同：
 
-```
-普通 uniform 必须带 layout(location=N)，如: layout(location=0) uniform float u_Param;
+| 后端 | 输出 |
+|------|------|
+| Vulkan | 合成一个 `layout(push_constant, std430)` 匿名块，成员各带显式 `layout(offset = N)` |
+| OpenGL | 每条声明重写为 `layout(location = N) uniform ...` |
+
+也接受显式 `layout(location = N) uniform ...`：OpenGL 下该行原样保留，Vulkan 下仍并入 push constant 块。
+
+std430 布局：标量对齐 4；`vec2` 对齐 8；`vec3` / `vec4` 对齐 16（`vec3` 仍占 12 字节）；整块大小向上取 16 的倍数。
+
+```glsl
+uniform float u_A;   // offset 0
+uniform vec3  u_B;   // offset 16（不是 4）
+uniform int   u_C;   // offset 28
+                     // 块大小 32
 ```
 
-普通 uniform 进入单独的反射列表（按 location 索引），与资源（按 binding 索引）区分。
+Vulkan 的 push constant 上限为 128 字节，超出报错。
+
+采样器 / 图像 uniform 必须带 `layout(set=N, binding=M)`，不属于本节。一个 `uniform` 声明独占一行。
 
 ---
 
@@ -208,7 +223,8 @@ kernel body 内可直接使用标准 GLSL compute 内置变量：
 | `GlslVersion` | 文件 `#version` 声明的版本号 |
 | `Kernels` | kernel 列表：名称、线程组大小、变体定义 |
 | `Resources` | 资源列表：类型、格式、set/binding、读写标志 |
-| `Uniforms` | 普通 uniform 列表：类型、location |
+| `Uniforms` | 数值 uniform 列表：类型、location、offset、size |
+| `UniformBlockSize` | 数值 uniform 的 std430 总大小（16 字节对齐），仅用于编译期 128 字节上限检查；运行期 push constant 大小由反射得出 |
 | `Bindings` | 绑定信息：set/binding/name/kind（编译期解析，不依赖 SPIR-V） |
 
 JSON 输出（`-j` / `-a`）包含上述全部信息，字段含 `kernels` / `resources` / `uniforms` / `bindings`，`ResourceKind` 与 `ImageFormat` 枚举序列化。
@@ -230,7 +246,7 @@ GLSL / SPIR-V / MSL 不受影响。
 ### 其他
 
 - kernel 函数签名固定为 `void Name()`，不支持参数
-- 普通 uniform 必须指定 `layout(location=N)`
+- 数值 uniform 只支持标量与 2~4 宽度的向量，不支持矩阵与数组
 - kernel 定义必须先在 `#pragma kernel` 中声明
 
 ---
@@ -248,7 +264,7 @@ layout(binding = 0) uniform sampler2D u_EquirectangularTex;
 layout(binding = 1) uniform samplerCube u_InputCubeMap;
 layout(rgba16f, binding = 2) uniform imageCube o_OutputCube;
 
-layout(location = 0) uniform float u_Roughness;
+uniform float u_Roughness;
 
 const float PI = 3.141592;
 const float TwoPI = 2.0 * PI;

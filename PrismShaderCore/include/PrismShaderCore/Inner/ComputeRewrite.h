@@ -1,6 +1,7 @@
 #pragma once
 
 #include "InnerTypes.h"
+#include "../PSL/Common.h"
 
 #include <cstdint>
 #include <string>
@@ -18,7 +19,7 @@ public:
 
     bool Analyze(const ComputeInnerParams& params, CompiledComputeShader& out);
 
-    std::string Emit(const ComputeInnerParams& params, uint32_t kernelIndex);
+    std::string Emit(const ComputeInnerParams& params, uint32_t kernelIndex, TargetBackend backend);
 
 private:
     DiagnosticCollector& m_Diag;

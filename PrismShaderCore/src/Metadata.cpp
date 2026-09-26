@@ -199,6 +199,7 @@ namespace PrismShaderCompiler
 
         j["name"] = shader.ShaderName;
         j["glslVersion"] = shader.GlslVersion;
+        j["uniformBlockSize"] = shader.UniformBlockSize;
 
         auto& jkernels = j["kernels"] = nlohmann::json::array();
         for (auto& k : shader.Kernels)
@@ -237,6 +238,8 @@ namespace PrismShaderCompiler
             ju["name"] = u.Name;
             ju["type"] = GLSLTypeUtil::ToString(u.Type);
             ju["location"] = u.Location;
+            ju["offset"] = u.Offset;
+            ju["size"] = u.Size;
             junis.push_back(std::move(ju));
         }
 

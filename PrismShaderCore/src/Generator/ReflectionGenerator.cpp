@@ -21,7 +21,7 @@ namespace PrismShaderCompiler
         }
 
         void ReflectStage(const std::vector<uint32_t>& spirv, uint32_t stageFlag,
-            std::unordered_map<uint64_t, DescriptorInfo>& merged)
+            std::unordered_map<uint64_t, DescriptorInfo>& merged, uint32_t& pushConstantSize)
         {
             if (spirv.empty())
                 return;
@@ -75,6 +75,13 @@ namespace PrismShaderCompiler
             addResources(resources.separate_samplers, DescriptorKind::Sampler);
             addResources(resources.storage_images, DescriptorKind::StorageImage);
             addResources(resources.sampled_images, DescriptorKind::Sampler);
+
+            for (const auto& res : resources.push_constant_buffers)
+            {
+                const auto& type = compiler.get_type_from_variable(res.id);
+                pushConstantSize = std::max(pushConstantSize,
+                    (uint32_t)compiler.get_declared_struct_size(type));
+            }
         }
     }
 
@@ -99,20 +106,26 @@ namespace PrismShaderCompiler
         const std::vector<uint32_t>& fsSpirv)
     {
         std::unordered_map<uint64_t, DescriptorInfo> merged;
+        uint32_t pushConstantSize = 0;
 
-        ReflectStage(vsSpirv, 0x00000001, merged);
-        ReflectStage(fsSpirv, 0x00000004, merged);
+        ReflectStage(vsSpirv, 0x00000001, merged, pushConstantSize);
+        ReflectStage(fsSpirv, 0x00000004, merged, pushConstantSize);
 
-        return FinalizeReflection(merged);
+        PassReflection result = FinalizeReflection(merged);
+        result.PushConstantSize = pushConstantSize;
+        return result;
     }
 
     PassReflection PSC_API ReflectCompute(const std::vector<uint32_t>& computeSpirv)
     {
         std::unordered_map<uint64_t, DescriptorInfo> merged;
+        uint32_t pushConstantSize = 0;
 
-        ReflectStage(computeSpirv, 0x00000020, merged);
+        ReflectStage(computeSpirv, 0x00000020, merged, pushConstantSize);
 
-        return FinalizeReflection(merged);
+        PassReflection result = FinalizeReflection(merged);
+        result.PushConstantSize = pushConstantSize;
+        return result;
     }
 
 } // namespace PrismShaderCompiler

@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 
 namespace PrismShaderCompiler
@@ -20,6 +21,49 @@ namespace
 {
 
 constexpr size_t kNoIndex = static_cast<size_t>(-1);
+
+constexpr uint32_t kImplicitLocation = 0xFFFFFFFFu;
+
+// Vulkan 保证的 maxPushConstantsSize 下限
+constexpr uint32_t kMaxPushConstantSize = 128;
+
+struct LayoutInfo
+{
+    uint32_t Size = 0;
+    uint32_t Align = 0;
+};
+
+// std430：标量对齐 4；vec2 对齐 8；vec3 / vec4 对齐 16（vec3 仍占 12 字节）
+bool UniformLayout(GLSLType type, LayoutInfo& out)
+{
+    switch (type)
+    {
+    case GLSLType::Bool: case GLSLType::Int: case GLSLType::UInt: case GLSLType::Float:
+        out = LayoutInfo{ 4, 4 };
+        return true;
+
+    case GLSLType::BVec2: case GLSLType::IVec2: case GLSLType::UVec2: case GLSLType::Vec2:
+        out = LayoutInfo{ 8, 8 };
+        return true;
+
+    case GLSLType::BVec3: case GLSLType::IVec3: case GLSLType::UVec3: case GLSLType::Vec3:
+        out = LayoutInfo{ 12, 16 };
+        return true;
+
+    case GLSLType::BVec4: case GLSLType::IVec4: case GLSLType::UVec4: case GLSLType::Vec4:
+        out = LayoutInfo{ 16, 16 };
+        return true;
+
+    default:
+        return false;
+    }
+}
+
+std::string UnsupportedUniformType(const std::string& name)
+{
+    return "compute 数值 uniform 不支持类型 '" + name
+         + "'，只支持 bool/int/uint/float 与 bvec/ivec/uvec/vec 2~4";
+}
 
 size_t NextToken(const std::vector<PPItem>& items, size_t index)
 {
@@ -94,14 +138,65 @@ struct KernelInfo
     bool Defined = false;
 };
 
+// 裸 uniform 与 layout(location=N) uniform 的共同扫描结果：Line 是整行区间（Emit 时整行 drop）
+struct ScannedUniform
+{
+    CSL::ComputeUniform Uniform;
+    Range Line;
+    uint32_t Size = 0;
+    uint32_t Align = 0;
+    bool ExplicitLocation = false;
+};
+
 struct ScanResult
 {
     int GlslVersion = 450;
     std::vector<Range> Drops;
     std::vector<KernelInfo> Kernels;
     std::vector<CSL::ComputeResource> Resources;
-    std::vector<CSL::ComputeUniform> Uniforms;
+    std::vector<ScannedUniform> Uniforms;
+    uint32_t UniformBlockSize = 0;
 };
+
+void AssignUniformOrdinals(std::vector<ScannedUniform>& uniforms)
+{
+    std::unordered_set<uint32_t> used;
+
+    for (const ScannedUniform& scanned : uniforms)
+    {
+        if (scanned.ExplicitLocation)
+            used.insert(scanned.Uniform.Location);
+    }
+
+    uint32_t next = 0;
+
+    for (ScannedUniform& scanned : uniforms)
+    {
+        if (scanned.ExplicitLocation)
+            continue;
+
+        while (used.count(next))
+            ++next;
+
+        scanned.Uniform.Location = next;
+        used.insert(next);
+    }
+}
+
+void ComputeUniformLayout(std::vector<ScannedUniform>& uniforms, uint32_t& blockSize)
+{
+    uint32_t offset = 0;
+
+    for (ScannedUniform& scanned : uniforms)
+    {
+        offset = (offset + scanned.Align - 1) / scanned.Align * scanned.Align;
+        scanned.Uniform.Offset = offset;
+        scanned.Uniform.Size = scanned.Size;
+        offset += scanned.Size;
+    }
+
+    blockSize = (offset + 15u) / 16u * 16u;
+}
 
 CSL::ResourceKind SamplerKind(GLSLType type)
 {
@@ -179,6 +274,7 @@ private:
     void ScanKernelPragma(size_t begin, ScanResult& out);
     size_t ScanKernelDef(size_t begin, ScanResult& out);
     size_t ScanLayout(size_t begin, ScanResult& out);
+    void ScanUniformDecl(size_t begin, ScanResult& out);
 
     bool ReadInstanceName(TokenCursor& cursor, CSL::ComputeResource& resource,
                           const PPSourceLoc& loc, bool required) const;
@@ -247,9 +343,8 @@ void Scanner::Run(ScanResult& out)
 
         if (token->IsIdent("uniform"))
         {
-            Error("普通 uniform 必须带 layout(location=N)，如: layout(location=0) uniform float u_Param;",
-                  token->Loc);
-            ++i;
+            ScanUniformDecl(i, out);
+            i = LineEnd(i) + 1;
             continue;
         }
 
@@ -466,6 +561,68 @@ size_t Scanner::ScanKernelDef(size_t begin, ScanResult& out)
     return close + 1;
 }
 
+void Scanner::ScanUniformDecl(size_t begin, ScanResult& out)
+{
+    const PPSourceLoc loc = m_Items[begin].Tok.Loc;
+    TokenCursor cursor(m_Items, begin);
+
+    cursor.Step();
+
+    const PPToken* type = cursor.Peek();
+
+    if (!type || type->IsNot(PPType::Identifier))
+    {
+        Error("uniform 后期望 GLSL 类型", loc);
+        return;
+    }
+
+    const GLSLType glslType = GLSLTypeUtil::FromName(type->Spelling);
+    cursor.Step();
+
+    if (GLSLTypeUtil::IsSamplerType(glslType) || GLSLTypeUtil::IsImageType(glslType))
+    {
+        Error("sampler / image uniform 必须带 layout(set=N, binding=M)", type->Loc);
+        return;
+    }
+
+    LayoutInfo layout;
+
+    if (glslType == GLSLType::None || !UniformLayout(glslType, layout))
+    {
+        Error(UnsupportedUniformType(type->Spelling), type->Loc);
+        return;
+    }
+
+    const PPToken* name = cursor.Peek();
+
+    if (!name || name->IsNot(PPType::Identifier))
+    {
+        Error("期望 uniform 名称", type->Loc);
+        return;
+    }
+
+    cursor.Step();
+    cursor.Accept(";");
+
+    if (const PPToken* trailing = cursor.Peek();
+        trailing && trailing->Loc.File == loc.File && trailing->Loc.Line == loc.Line)
+    {
+        Error("每行只能声明一个 uniform", trailing->Loc);
+        return;
+    }
+
+    ScannedUniform scanned;
+    scanned.Uniform.Type = glslType;
+    scanned.Uniform.Name = name->Spelling;
+    scanned.Uniform.Location = kImplicitLocation;
+    scanned.Uniform.Loc = LocOf(loc);
+    scanned.Size = layout.Size;
+    scanned.Align = layout.Align;
+    scanned.Line = Range{ begin, LineEnd(begin) };
+
+    out.Uniforms.push_back(std::move(scanned));
+}
+
 size_t Scanner::ScanLayout(size_t begin, ScanResult& out)
 {
     const PPSourceLoc loc = m_Items[begin].Tok.Loc;
@@ -628,15 +785,24 @@ size_t Scanner::ScanLayout(size_t begin, ScanResult& out)
             return cursor.Raw();
         }
 
-        if (!hasLocation)
-            Error("普通 uniform 必须指定 layout(location=N)", type->Loc);
+        LayoutInfo layout;
 
-        CSL::ComputeUniform uniform;
-        uniform.Type = glslType;
-        uniform.Location = location;
-        uniform.Name = name->Spelling;
-        uniform.Loc = LocOf(loc);
-        out.Uniforms.push_back(std::move(uniform));
+        if (!UniformLayout(glslType, layout))
+        {
+            Error(UnsupportedUniformType(type->Spelling), type->Loc);
+            return cursor.Raw();
+        }
+
+        ScannedUniform scanned;
+        scanned.Uniform.Type = glslType;
+        scanned.Uniform.Name = name->Spelling;
+        scanned.Uniform.Location = hasLocation ? location : kImplicitLocation;
+        scanned.Uniform.Loc = LocOf(loc);
+        scanned.Size = layout.Size;
+        scanned.Align = layout.Align;
+        scanned.ExplicitLocation = hasLocation;
+        scanned.Line = Range{ begin, LineEnd(begin) };
+        out.Uniforms.push_back(std::move(scanned));
 
         return cursor.Raw();
     }
@@ -768,11 +934,16 @@ bool ComputeRewriter::Analyze(const ComputeInnerParams& params, CompiledComputeS
     if (m_Diag.HasErrors())
         return false;
 
+    AssignUniformOrdinals(scan.Uniforms);
+    ComputeUniformLayout(scan.Uniforms, out.UniformBlockSize);
+
     out.GlslVersion = scan.GlslVersion;
     out.Source = params.Source;
     out.SourcePath = params.Config.SourcePath;
     out.Resources = std::move(scan.Resources);
-    out.Uniforms = std::move(scan.Uniforms);
+
+    for (ScannedUniform& scanned : scan.Uniforms)
+        out.Uniforms.push_back(std::move(scanned.Uniform));
 
     for (KernelInfo& kernel : scan.Kernels)
     {
@@ -792,7 +963,8 @@ bool ComputeRewriter::Analyze(const ComputeInnerParams& params, CompiledComputeS
     return true;
 }
 
-std::string ComputeRewriter::Emit(const ComputeInnerParams& params, uint32_t kernelIndex)
+std::string ComputeRewriter::Emit(const ComputeInnerParams& params, uint32_t kernelIndex,
+                                  TargetBackend backend)
 {
     PPFileTable files;
     std::vector<PPItem> items;
@@ -807,9 +979,20 @@ std::string ComputeRewriter::Emit(const ComputeInnerParams& params, uint32_t ker
     if (m_Diag.HasErrors())
         return std::string();
 
+    AssignUniformOrdinals(scan.Uniforms);
+    ComputeUniformLayout(scan.Uniforms, scan.UniformBlockSize);
+
     if (kernelIndex >= scan.Kernels.size() || !scan.Kernels[kernelIndex].Defined)
     {
         m_Diag.Error("compute kernel 序号 " + std::to_string(kernelIndex) + " 超出范围",
+                     ToDiagnosticLocation(PPSourceLoc{}, params.Config.SourcePath));
+        return std::string();
+    }
+
+    if (backend == TargetBackend::Vulkan && scan.UniformBlockSize > kMaxPushConstantSize)
+    {
+        m_Diag.Error("compute 数值 uniform 共 " + std::to_string(scan.UniformBlockSize)
+                     + " 字节，超出 push constant 上限 " + std::to_string(kMaxPushConstantSize) + " 字节",
                      ToDiagnosticLocation(PPSourceLoc{}, params.Config.SourcePath));
         return std::string();
     }
@@ -821,6 +1004,12 @@ std::string ComputeRewriter::Emit(const ComputeInnerParams& params, uint32_t ker
     for (const Range& drop : scan.Drops)
         MarkRange(items, skip, drop);
 
+    for (const ScannedUniform& scanned : scan.Uniforms)
+    {
+        if (backend == TargetBackend::Vulkan || !scanned.ExplicitLocation)
+            MarkRange(items, skip, scanned.Line);
+    }
+
     for (const KernelInfo& other : scan.Kernels)
     {
         if (other.Defined && other.Name != kernel.Name)
@@ -831,6 +1020,35 @@ std::string ComputeRewriter::Emit(const ComputeInnerParams& params, uint32_t ker
 
     writer.Raw("// " + NormalizePath(params.Config.SourcePath) + "\n");
     writer.Raw("#version " + std::to_string(scan.GlslVersion) + " core\n");
+
+    if (backend == TargetBackend::Vulkan)
+    {
+        if (!scan.Uniforms.empty())
+        {
+            writer.Raw("layout(push_constant, std430) uniform PrismPushConstants\n{\n");
+
+            for (const ScannedUniform& scanned : scan.Uniforms)
+            {
+                writer.Raw("    layout(offset = " + std::to_string(scanned.Uniform.Offset) + ") "
+                         + GLSLTypeUtil::ToString(scanned.Uniform.Type) + " "
+                         + scanned.Uniform.Name + ";\n");
+            }
+
+            writer.Raw("};\n");
+        }
+    }
+    else
+    {
+        for (const ScannedUniform& scanned : scan.Uniforms)
+        {
+            if (scanned.ExplicitLocation)
+                continue;
+
+            writer.Raw("layout(location = " + std::to_string(scanned.Uniform.Location) + ") uniform "
+                     + GLSLTypeUtil::ToString(scanned.Uniform.Type) + " "
+                     + scanned.Uniform.Name + ";\n");
+        }
+    }
 
     for (size_t i = 0; i < items.size(); ++i)
     {

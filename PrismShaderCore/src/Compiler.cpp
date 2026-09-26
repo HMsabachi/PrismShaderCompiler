@@ -451,6 +451,12 @@ void FillComputeParams(ComputeInnerParams& params, const CompiledComputeShader& 
     ComputeKernelOutput ShaderCompiler::GenerateComputeIR(const CompiledComputeShader& shader,
         uint32_t kernelIndex)
     {
+        return GenerateComputeIRImpl(shader, kernelIndex, TargetBackend::Vulkan);
+    }
+
+    ComputeKernelOutput ShaderCompiler::GenerateComputeIRImpl(const CompiledComputeShader& shader,
+        uint32_t kernelIndex, TargetBackend backend)
+    {
         ComputeKernelOutput out;
         if (kernelIndex >= shader.Kernels.size())
         {
@@ -465,7 +471,7 @@ void FillComputeParams(ComputeInnerParams& params, const CompiledComputeShader& 
         DiagnosticCollector diag;
         ComputeRewriter rewriter(diag);
 
-        out.Source = rewriter.Emit(params, kernelIndex);
+        out.Source = rewriter.Emit(params, kernelIndex, backend);
 
         for (const Diagnostic& d : diag.GetDiagnostics())
         {
@@ -495,7 +501,7 @@ void FillComputeParams(ComputeInnerParams& params, const CompiledComputeShader& 
             return out;
         }
 
-        auto ir = GenerateComputeIR(shader, kernelIndex);
+        auto ir = GenerateComputeIRImpl(shader, kernelIndex, backend);
         if (ir.Source.empty())
         {
             out.Errors = std::move(ir.Errors);

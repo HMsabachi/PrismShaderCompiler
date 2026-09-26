@@ -76,6 +76,8 @@ struct ComputeUniform
     GLSLType Type = GLSLType::None;
     std::string Name;
     uint32_t Location = 0;
+    uint32_t Offset = 0;
+    uint32_t Size = 0;
     SourceLocation Loc;
 };
 

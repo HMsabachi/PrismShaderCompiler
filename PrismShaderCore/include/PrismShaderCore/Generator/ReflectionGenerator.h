@@ -31,6 +31,7 @@ struct DescriptorInfo
 struct PassReflection
 {
     std::vector<DescriptorInfo> Descriptors;
+    uint32_t PushConstantSize = 0;
 };
 
 PassReflection PSC_API ReflectDescriptors(const std::vector<uint32_t>& vsSpirv,

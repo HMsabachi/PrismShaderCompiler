@@ -29,6 +29,7 @@ struct CompiledComputeShader
 
     std::vector<CSL::ComputeResource> Resources;
     std::vector<CSL::ComputeUniform> Uniforms;
+    uint32_t UniformBlockSize = 0;
 
     struct BindingInfo
     {
