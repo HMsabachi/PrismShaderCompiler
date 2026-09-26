@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include <cstdint>
+#include <string_view>
 #include "Token.h"
 
 namespace PrismShaderCompiler
@@ -122,6 +123,36 @@ inline const char* ToString(GLSLType type)
     case GLSLType::AtomicUInt:          return "atomic_uint";
     default:                            return "unknown";
     }
+}
+
+inline GLSLType FromName(std::string_view name)
+{
+    static constexpr GLSLType kTypes[] =
+    {
+        GLSLType::Void, GLSLType::Bool, GLSLType::Int, GLSLType::UInt, GLSLType::Float, GLSLType::Double,
+        GLSLType::BVec2, GLSLType::BVec3, GLSLType::BVec4,
+        GLSLType::IVec2, GLSLType::IVec3, GLSLType::IVec4,
+        GLSLType::UVec2, GLSLType::UVec3, GLSLType::UVec4,
+        GLSLType::Vec2, GLSLType::Vec3, GLSLType::Vec4,
+        GLSLType::DVec2, GLSLType::DVec3, GLSLType::DVec4,
+        GLSLType::Mat2, GLSLType::Mat3, GLSLType::Mat4,
+        GLSLType::Mat2x2, GLSLType::Mat2x3, GLSLType::Mat2x4,
+        GLSLType::Mat3x2, GLSLType::Mat3x3, GLSLType::Mat3x4,
+        GLSLType::Mat4x2, GLSLType::Mat4x3, GLSLType::Mat4x4,
+        GLSLType::Sampler2D, GLSLType::Sampler2DMS, GLSLType::SamplerCube,
+        GLSLType::Sampler2DShadow, GLSLType::SamplerCubeShadow,
+        GLSLType::Sampler2DArray, GLSLType::Sampler2DArrayShadow, GLSLType::Sampler3D,
+        GLSLType::Image2D, GLSLType::Image3D, GLSLType::ImageCube,
+        GLSLType::AtomicUInt,
+    };
+
+    for (const GLSLType type : kTypes)
+    {
+        if (name == ToString(type))
+            return type;
+    }
+
+    return GLSLType::None;
 }
 
 inline bool IsSamplerType(GLSLType type)

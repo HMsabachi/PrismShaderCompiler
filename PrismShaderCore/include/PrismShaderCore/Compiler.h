@@ -123,6 +123,10 @@ namespace PrismShaderCompiler
             const std::vector<std::string>& keywords,
             TargetBackend backend);
 
+        ComputeKernelOutput GenerateComputeSPIRVImpl(const CompiledComputeShader& shader,
+            uint32_t kernelIndex,
+            TargetBackend backend);
+
         CompilerConfig m_Config;
         std::unordered_set<std::string> m_CompileInProgress;
     };

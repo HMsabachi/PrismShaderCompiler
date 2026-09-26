@@ -464,7 +464,6 @@ PPExprNode PPExpr::ParsePrimary()
         if (name == "true") return MakeConst(1, loc);
         if (name == "false") return MakeConst(0, loc);
 
-        // 展开后仍存活的标识符：deferred 的留作符号，其余按 C 规则取 0
         if (m_Macros.IsDeferred(name))
             return MakeSymbol(name, loc);
 

@@ -12,18 +12,13 @@ namespace PrismShaderCompiler
 
 class DiagnosticCollector;
 
-// PP-token 词法：续行拼接、注释保留、行首标志、物理位置。
-// 只做词法 —— 不展开宏、不求值条件、不解释指令。
 class PPLexer
 {
 public:
     PPLexer(std::string_view source, PPFileId file);
 
-    // 扫描全部 token，末尾追加一个 EndOfFile
     std::vector<PPToken> Tokenize(DiagnosticCollector* diag = nullptr);
 
-    // 由 token 序列还原源文本：逐 token 拼接「前导原文 + 拼写」。
-    // 仅当续行出现在 token 内部时该处会被拼接掉，其余字节逐字还原。
     std::string Detokenize(const std::vector<PPToken>& tokens) const;
 
     std::string_view GetSource() const { return m_Source; }

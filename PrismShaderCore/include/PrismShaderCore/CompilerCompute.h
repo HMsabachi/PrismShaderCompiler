@@ -13,26 +13,20 @@ namespace PrismShaderCompiler
 struct CompiledComputeShader
 {
     std::string ShaderName;
+    std::string Source;
+    std::string SourcePath;
     int GlslVersion = 450;
-    SourceLocation SharedStartLoc;
 
     struct KernelInfo
     {
         std::string Name;
         std::vector<std::string> VariantDefines;
-        uint32_t GroupSizeX, GroupSizeY, GroupSizeZ;
-        std::string FunctionSource;
-
-        SourceLocation DeclLoc;
-        SourceLocation DefLoc;
-        uint32_t DeclInsertID = 0;
-        uint32_t DefInsertID = 0;
-        SourceLocation DeclAfterLoc;
-        SourceLocation DefAfterLoc;
+        uint32_t GroupSizeX = 1;
+        uint32_t GroupSizeY = 1;
+        uint32_t GroupSizeZ = 1;
     };
     std::vector<KernelInfo> Kernels;
 
-    std::string SharedSource;
     std::vector<CSL::ComputeResource> Resources;
     std::vector<CSL::ComputeUniform> Uniforms;
 

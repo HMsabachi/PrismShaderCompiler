@@ -4,7 +4,6 @@
 #include "../PSL/GLSLType.h"
 
 #include <string>
-#include <vector>
 #include <cstdint>
 
 namespace PrismShaderCompiler::CSL
@@ -78,37 +77,6 @@ struct ComputeUniform
     std::string Name;
     uint32_t Location = 0;
     SourceLocation Loc;
-};
-
-struct KernelDecl
-{
-    std::string Name;
-    std::vector<std::string> VariantDefines;
-    uint32_t InsertID = 0;
-    SourceLocation Loc;
-    SourceLocation AfterLoc;
-};
-
-struct KernelDef
-{
-    std::string Name;
-    uint32_t GroupSizeX, GroupSizeY, GroupSizeZ;
-    std::string FunctionSource;
-    uint32_t InsertID = 0;
-    SourceLocation Loc;
-    SourceLocation AfterLoc;
-};
-
-struct ComputeDocument
-{
-    std::string ShaderName;
-    int GlslVersion = 450;
-    SourceLocation SharedStartLoc;
-    std::vector<KernelDecl> KernelDecls;
-    std::vector<KernelDef> Kernels;
-    std::vector<ComputeResource> Resources;
-    std::vector<ComputeUniform> Uniforms;
-    std::string SharedSource;
 };
 
 } // namespace PrismShaderCompiler::CSL

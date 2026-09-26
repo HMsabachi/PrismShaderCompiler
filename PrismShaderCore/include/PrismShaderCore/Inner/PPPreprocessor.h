@@ -16,30 +16,28 @@ namespace PrismShaderCompiler
 
 class DiagnosticCollector;
 
-// 预处理输出是「带条件标记的线性 token 流」，不是树 ——
-// 改写与代码生成都是单趟线性扫描，条件嵌套用下面三个标记表达。
 struct PPItem
 {
     enum class Kind : uint8_t
     {
-        Token,      // 普通 token（原文片段，或宏展开出来的合成 token）
-        CondBegin,  // 保留的 #if / #ifdef / #ifndef
-        CondElse,   // 保留的 #elif / #else
-        CondEnd,    // #endif
+        Token,
+        CondBegin,
+        CondElse,
+        CondEnd,
     };
 
     Kind K = Kind::Token;
 
-    PPToken Tok;                // Kind == Token 时有效
+    PPToken Tok;
 
-    std::string Condition;      // CondBegin：条件文本；CondElse："else" 或 "elif <expr>"
-    PPSourceLoc Loc;            // 标记对应的指令位置
+    std::string Condition;
+    PPSourceLoc Loc;
 };
 
 struct PPVariantDecl
 {
-    std::string Name;                       // "multi_compile" / "shader_feature"
-    std::vector<std::string> Keywords;      // 已剔除占位符 _
+    std::string Name;
+    std::vector<std::string> Keywords;
     PPSourceLoc Loc;
 };
 
@@ -50,20 +48,17 @@ struct PPResult
     bool Success = true;
 };
 
-// 读文件回调：返回 false 表示打不开
 using PPReadFileFn = std::function<bool(const std::string& path, std::string& out)>;
 
 struct PPParams
 {
-    std::string Path;                       // 该 .Shader 自身的路径，供 include 相对解析与 #line
-    std::string Source;                     // GLSL 块原文
+    std::string Path;
+    std::string Source;
     std::string IncludeRoot;
     PPReadFileFn ReadFile;
-    std::vector<std::string> Defines;       // 立即定义的一批名字（如 PRISM_VERTEX_SHADER）
+    std::vector<std::string> Defines;
 };
 
-// 一次 Run 对应一个输出阶段 —— PRISM_VERTEX_SHADER / PRISM_FRAGMENT_SHADER 是立即宏，
-// 两个阶段的条件求值结果不同，故上层的 GLSL 块要跑两遍。
 class PPPreprocessor
 {
 public:
@@ -79,12 +74,12 @@ private:
         enum class State : uint8_t { Active, Skipped, Deferred };
 
         State S = State::Active;
-        bool Emitting = true;       // 自本帧起是否输出
+        bool Emitting = true;
         bool ParentEmitting = true;
-        bool Taken = false;         // 立即模式：已有分支命中
-        bool SuppressRest = false;  // deferred 模式：某分支恒真，其后分支不再保留
+        bool Taken = false;
+        bool SuppressRest = false;
         bool SawElse = false;
-        bool MarkerOpened = false;  // 已向输出写入 CondBegin，收尾时必须配一个 CondEnd
+        bool MarkerOpened = false;
         PPSourceLoc Loc;
     };
 
@@ -132,7 +127,7 @@ private:
     std::vector<CondFrame> m_Conds;
     std::vector<PPVariantDecl> m_Variants;
 
-    std::unordered_map<std::string, uint8_t> m_IncludeOnce;   // bit0 = 无条件展开过, bit1 = deferred 内展开过
+    std::unordered_map<std::string, uint8_t> m_IncludeOnce;
     std::vector<std::string> m_IncludeStack;
     size_t m_Depth = 0;
 

@@ -11,69 +11,8 @@ namespace PrismShaderCompiler
 namespace
 {
 
-// 不可能与真实源偏移相撞的哨兵：合成内容之后必须重新锚定 #line
-constexpr uint32_t kNoOffset = 0xFFFFFFFFu;
-
-std::string NormalizePath(const std::string& path)
-{
-    std::string out = path;
-
-    for (char& c : out)
-    {
-        if (c == '\\')
-            c = '/';
-    }
-
-    return out;
-}
-
-// 拼写 -> GLSLType。走 ToString 反查，避免再抄一份类型名表。
-GLSLType ParseGLSLType(std::string_view text)
-{
-    static const GLSLType kTypes[] =
-    {
-        GLSLType::Void, GLSLType::Bool, GLSLType::Int, GLSLType::UInt, GLSLType::Float, GLSLType::Double,
-        GLSLType::BVec2, GLSLType::BVec3, GLSLType::BVec4,
-        GLSLType::IVec2, GLSLType::IVec3, GLSLType::IVec4,
-        GLSLType::UVec2, GLSLType::UVec3, GLSLType::UVec4,
-        GLSLType::Vec2, GLSLType::Vec3, GLSLType::Vec4,
-        GLSLType::DVec2, GLSLType::DVec3, GLSLType::DVec4,
-        GLSLType::Mat2, GLSLType::Mat3, GLSLType::Mat4,
-        GLSLType::Mat2x2, GLSLType::Mat2x3, GLSLType::Mat2x4,
-        GLSLType::Mat3x2, GLSLType::Mat3x3, GLSLType::Mat3x4,
-        GLSLType::Mat4x2, GLSLType::Mat4x3, GLSLType::Mat4x4,
-        GLSLType::Sampler2D, GLSLType::Sampler2DMS, GLSLType::SamplerCube,
-        GLSLType::Sampler2DShadow, GLSLType::SamplerCubeShadow,
-        GLSLType::Sampler2DArray, GLSLType::Sampler2DArrayShadow, GLSLType::Sampler3D,
-        GLSLType::Image2D, GLSLType::Image3D, GLSLType::ImageCube,
-        GLSLType::AtomicUInt,
-    };
-
-    for (const GLSLType type : kTypes)
-    {
-        if (text == GLSLTypeUtil::ToString(type))
-            return type;
-    }
-
-    return GLSLType::None;
-}
-
-// 条件标记不是声明的一部分：向前看时撞上标记即视为认不出
-const PPToken* TokenAt(const std::vector<PPItem>& items, size_t index)
-{
-    if (index >= items.size() || items[index].K != PPItem::Kind::Token)
-        return nullptr;
-
-    return &items[index].Tok;
-}
-
 constexpr size_t kNoIndex = static_cast<size_t>(-1);
 
-// 声明解析游标。
-//
-// PPItem 流里换行是货真价实的 token（逐字回写需要它），但声明可以跨行写 ——
-// `varying V\n{\n ... }` 与 `void vert()\n{` 都是资产里的实际写法。
-// 所以解析一律跳换行前进；撞上条件标记则中止，因为标记两侧是另一份声明。
 class SigCursor
 {
 public:
@@ -112,181 +51,6 @@ private:
     const std::vector<PPItem>& m_Items;
     size_t m_Index = kNoIndex;
 };
-
-void MarkSkipped(const std::vector<PPItem>& items, std::vector<bool>& skip, size_t begin, size_t end)
-{
-    for (size_t i = begin + 1; i <= end && i < skip.size(); ++i)
-        skip[i] = true;
-
-    // 声明收尾的换行一并吃掉 —— 替身文本自带换行，留着会平白多出空行
-    const size_t after = end + 1;
-
-    if (after < skip.size() && items[after].K == PPItem::Kind::Token
-        && items[after].Tok.Is(PPType::NewLine))
-    {
-        skip[after] = true;
-    }
-}
-
-const PPSourceLoc& FirstTokenLoc(const std::vector<PPItem>& items)
-{
-    static const PPSourceLoc kUnknown;
-
-    for (const PPItem& item : items)
-    {
-        if (item.K == PPItem::Kind::Token)
-            return item.Tok.Loc;
-    }
-
-    return kUnknown;
-}
-
-} // namespace
-
-// 输出缓冲。两项职责：
-//   1. 源 token 按原文范围逐字回写 —— deferred 区里的条件分支一字不能改；
-//   2. 位置不连续处补 #line，让 glslang 的报错落回 .Shader 与 .glsl 的原始行。
-class GLSLWriter
-{
-public:
-    explicit GLSLWriter(const PPFileTable& files)
-        : m_Files(files)
-    {
-    }
-
-    void Raw(std::string_view text)
-    {
-        m_Out.append(text);
-        Invalidate();
-    }
-
-    void Token(const PPToken& token)
-    {
-        if (!token.HasRaw())
-        {
-            // 宏展开产物没有原文可回写，只能按拼写输出
-            if (token.LeadingSpace && NeedSpaceBefore())
-                m_Out.push_back(' ');
-
-            m_Out += token.Spelling;
-            Invalidate();
-            return;
-        }
-
-        if (!m_Files.IsValid(token.Loc.File))
-            return;
-
-        const std::string& source = m_Files.GetSource(token.Loc.File);
-        const uint32_t end = token.RawOffset + token.RawLength;
-
-        if (end > source.size() || token.TriviaOffset >= end)
-            return;
-
-        const bool contiguous = (token.Loc.File == m_LastFile) && (token.TriviaOffset == m_LastEnd);
-
-        if (contiguous)
-        {
-            m_Out.append(source, token.TriviaOffset, end - token.TriviaOffset);
-        }
-        else
-        {
-            // 先落前导空白与注释，再把 #line 顶到 token 正前方，token 才会落在它原本的行上
-            if (token.RawOffset > token.TriviaOffset)
-                m_Out.append(source, token.TriviaOffset, token.RawOffset - token.TriviaOffset);
-
-            LineDirective(token.Loc);
-            m_Out.append(source, token.RawOffset, token.RawLength);
-        }
-
-        m_LastFile = token.Loc.File;
-        m_LastEnd = end;
-    }
-
-    void LineDirective(const PPSourceLoc& loc)
-    {
-        if (!m_Files.IsValid(loc.File))
-            return;
-
-        Directive("#line " + std::to_string(loc.Line) + " \"" + NormalizePath(m_Files.GetPath(loc.File)) + "\"");
-    }
-
-    // #if / #elif / #else / #endif 必须落在行首
-    void Directive(const std::string& text)
-    {
-        if (!AtCleanLineStart())
-            m_Out.push_back('\n');
-
-        m_Out += text;
-
-        if (m_Out.empty() || m_Out.back() != '\n')
-            m_Out.push_back('\n');
-
-        Invalidate();
-    }
-
-    std::string Take() { return std::move(m_Out); }
-
-private:
-    void Invalidate()
-    {
-        m_LastFile = PP_NO_FILE;
-        m_LastEnd = kNoOffset;
-    }
-
-    bool AtCleanLineStart() const
-    {
-        for (size_t i = m_Out.size(); i > 0; --i)
-        {
-            const char c = m_Out[i - 1];
-
-            if (c == '\n')
-                return true;
-
-            if (c != ' ' && c != '\t' && c != '\r')
-                return false;
-        }
-
-        return true;
-    }
-
-    bool NeedSpaceBefore() const
-    {
-        if (m_Out.empty())
-            return false;
-
-        const char c = m_Out.back();
-        return c != '\n' && c != ' ' && c != '\t';
-    }
-
-    const PPFileTable& m_Files;
-    std::string m_Out;
-    PPFileId m_LastFile = PP_NO_FILE;
-    uint32_t m_LastEnd = kNoOffset;
-};
-
-namespace
-{
-
-void WriteMarker(GLSLWriter& writer, const PPItem& item)
-{
-    switch (item.K)
-    {
-    case PPItem::Kind::CondBegin:
-        writer.Directive("#if " + item.Condition);
-        break;
-
-    case PPItem::Kind::CondElse:
-        writer.Directive("#" + item.Condition);
-        break;
-
-    case PPItem::Kind::CondEnd:
-        writer.Directive("#endif");
-        break;
-
-    default:
-        break;
-    }
-}
 
 } // namespace
 
@@ -327,7 +91,7 @@ bool GLSLRewriter::ParseAttribute(const std::vector<PPItem>& items, size_t begin
     if (!cursor.Step() || !cursor.Tok().IsPunct(";"))
         return false;
 
-    const GLSLType glslType = ParseGLSLType(typeName);
+    const GLSLType glslType = GLSLTypeUtil::FromName(typeName);
 
     if (glslType == GLSLType::None)
     {
@@ -381,7 +145,7 @@ bool GLSLRewriter::ParseVarying(const std::vector<PPItem>& items, size_t begin, 
             return false;
 
         VaryingMember member;
-        member.Type = ParseGLSLType(cursor.Tok().Spelling);
+        member.Type = GLSLTypeUtil::FromName(cursor.Tok().Spelling);
 
         if (member.Type == GLSLType::None)
         {
@@ -422,7 +186,6 @@ bool GLSLRewriter::ParseVarying(const std::vector<PPItem>& items, size_t begin, 
     if (!closed)
         return false;
 
-    // '}' 之后是实例名与分号
     if (!cursor.Step() || cursor.Tok().IsNot(PPType::Identifier))
         return false;
 
@@ -463,7 +226,7 @@ bool GLSLRewriter::ParseFragOutput(const std::vector<PPItem>& items, size_t begi
     if (!cursor.Step() || cursor.Tok().IsNot(PPType::Identifier))
         return false;
 
-    const GLSLType glslType = ParseGLSLType(cursor.Tok().Spelling);
+    const GLSLType glslType = GLSLTypeUtil::FromName(cursor.Tok().Spelling);
 
     if (glslType == GLSLType::None)
         return false;
@@ -487,7 +250,6 @@ bool GLSLRewriter::ParseFragOutput(const std::vector<PPItem>& items, size_t begi
 
 bool GLSLRewriter::ParseEntry(const std::vector<PPItem>& items, size_t begin, EntryDecl& out) const
 {
-    // begin 是 'void'，begin+1 是入口名；形参表与左花括号之间允许换行
     SigCursor cursor(items, begin + 2);
 
     if (!cursor.Valid() || !cursor.Tok().IsPunct("("))
@@ -499,7 +261,6 @@ bool GLSLRewriter::ParseEntry(const std::vector<PPItem>& items, size_t begin, En
     if (!cursor.Step())
         return false;
 
-    // 兼容 void vert(void) 的写法
     if (cursor.Tok().IsIdent("void") && !cursor.Step())
         return false;
 
@@ -512,7 +273,6 @@ bool GLSLRewriter::ParseEntry(const std::vector<PPItem>& items, size_t begin, En
 
     for (size_t i = braceIndex; i < items.size(); ++i)
     {
-        // 条件标记可以夹在函数体内部，跳过即可
         if (items[i].K != PPItem::Kind::Token)
             continue;
 
@@ -587,7 +347,6 @@ bool GLSLRewriter::Collect(const std::vector<PPItem>& items, Plan& plan, bool ve
 
             MarkSkipped(items, plan.Skip, decl.Begin, decl.End);
 
-            // 顶点阶段就地改写；片元阶段只保留位置锚点，声明本身丢弃
             plan.Replacements[decl.Begin] = vertexStage
                 ? "layout(location = " + std::to_string(SemanticToLocation(decl.Semantic)) + ") in "
                   + std::string(GLSLTypeUtil::ToString(decl.Type)) + " " + decl.Name + ";\n"
@@ -796,7 +555,6 @@ void GLSLRewriter::WritePropertyBlock(GLSLWriter& writer, const std::vector<Inne
     if (uboBody.empty() && textures.empty())
         return;
 
-    // 后端是 deferred 的，绑定分支原样留在输出里，由 glslang 按 -D 选边
     writer.Raw("#if defined(PRISM_BACKEND_VULKAN)\n");
     writer.Raw("#define PRISM_MATERIAL_LAYOUT layout(std140, set = " + std::to_string(m_Config.VulkanMaterialUniformBufferSet)
              + ", binding = " + std::to_string(m_Config.VulkanMaterialUniformBufferBinding) + ")\n");

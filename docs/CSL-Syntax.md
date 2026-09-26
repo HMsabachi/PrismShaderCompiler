@@ -27,6 +27,17 @@ void KernelName()
 
 注释：`// 单行` 和 `/* 多行 */`（同 GLSL）
 
+### 预处理
+
+文件先经过引擎自带的 C 预处理器（与 PSL 共用），再解析 kernel 与资源声明：
+
+- `#include "..."` / `#include <...>` —— 相对当前文件与被包含文件解析，`#pragma once` 生效
+- `#define` / `#undef` / `#if` / `#ifdef` / `#ifndef` / `#elif` / `#else` / `#endif`，支持函数宏与 `__VA_ARGS__`
+- `#error` / `#warning`
+- 预处理阶段预定义 `PRISM_COMPUTE_SHADER`，可用于区分计算与图形阶段的共享代码
+
+因此被 `#ifdef` 排除的 kernel 定义与资源声明不会出现在反射数据中。
+
 ---
 
 ## 2. Kernel 声明
@@ -56,7 +67,7 @@ void CSEquirectToCube()
 
 ### 多 Kernel
 
-一个文件可声明多个 kernel，共享顶部的资源、uniform 和辅助函数。编译器为每个 kernel 单独输出一份文件，其余 kernel 的定义会被替换为 `#line` 占位（不参与编译），仅当前 kernel 被设为 `main` 入口。
+一个文件可声明多个 kernel，共享顶部的资源、uniform 和辅助函数。编译器为每个 kernel 单独输出一份源码：所有 `#pragma kernel` 行与其余 kernel 的整段定义被删除，当前 kernel 的函数体被重写为 `main` 入口，`[numthreads(x, y, z)]` 转为 `layout(local_size_x = x, local_size_y = y, local_size_z = z) in;`。其余 kernel 之外的位置保持原样，`#line` 指令保证报错行号映射回原文件。
 
 ---
 
@@ -68,7 +79,7 @@ void CSEquirectToCube()
 #pragma kernel CSMain FOG_LINEAR USE_HIGH_QUALITY
 ```
 
-变体定义会收集到 kernel 的 `VariantDefines` 中（反射数据可见）。kernel body 内可用 `#ifdef` 等预处理判断。
+变体定义会收集到 kernel 的 `VariantDefines` 中（反射数据可见），并在为该 kernel 生成 SPIR-V / GLSL 时作为关键字注入编译期预定义宏，因此 kernel body 与共享代码内都可用 `#ifdef` 判断，被排除的代码不参与编译。
 
 ---
 
@@ -156,7 +167,7 @@ layout(location = 1) uniform vec3 u_Color;
 
 ## 6. 共享代码
 
-文件中不属于 `#pragma kernel`、资源声明、kernel 定义的代码（辅助函数、常量、结构体等）会被收集为共享源，所有 kernel 可见：
+文件中不属于 `#pragma kernel`、资源声明、kernel 定义的代码（辅助函数、常量、结构体等）原样保留，所有 kernel 可见：
 
 ```glsl
 const float PI = 3.141592;
@@ -167,7 +178,7 @@ vec3 sampleHammersley(uint i, uint N)
 }
 ```
 
-编译器在生成单 kernel IR 时，把共享源作为主体，kernel 定义通过 `#line` 指令精确映射回原始行号，便于报错定位。
+生成单 kernel 源码时保留共享代码的原有位置与排版，仅删除已消费的声明行与非当前 kernel 定义，`#line` 指令把每段代码映射回原始文件行号，便于报错定位。
 
 ---
 
@@ -193,10 +204,12 @@ kernel body 内可直接使用标准 GLSL compute 内置变量：
 | 字段 | 说明 |
 |------|------|
 | `ShaderName` | 文件名 stem（如 `Environment.ComputeShader` -> `Environment`） |
-| `Kernels` | kernel 列表：名称、线程组大小、变体定义、函数源 |
+| `Source` / `SourcePath` | 原始 CSL 源码与路径，生成单 kernel 源码时重新走一遍预处理 |
+| `GlslVersion` | 文件 `#version` 声明的版本号 |
+| `Kernels` | kernel 列表：名称、线程组大小、变体定义 |
 | `Resources` | 资源列表：类型、格式、set/binding、读写标志 |
 | `Uniforms` | 普通 uniform 列表：类型、location |
-| `Bindings` | 绑定信息：set/binding/name/kind（直接从 Parser 反射，不依赖 SPIR-V） |
+| `Bindings` | 绑定信息：set/binding/name/kind（编译期解析，不依赖 SPIR-V） |
 
 JSON 输出（`-j` / `-a`）包含上述全部信息，字段含 `kernels` / `resources` / `uniforms` / `bindings`，`ResourceKind` 与 `ImageFormat` 枚举序列化。
 

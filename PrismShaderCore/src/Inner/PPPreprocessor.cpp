@@ -19,7 +19,6 @@ PPResult PPPreprocessor::Run(const PPParams& params)
 
     const size_t diagnosticsBefore = m_Diag.GetDiagnostics().size();
 
-    // 两个输出阶段各跑一次，宏表必须清干净 —— 否则上一阶段展开出的 include guard 会把这一阶段的 include 挡掉
     m_Macros = MacroTable();
     m_Macros.AddDeferredName("PRISM_BACKEND_OPENGL");
     m_Macros.AddDeferredName("PRISM_BACKEND_VULKAN");
@@ -95,13 +94,28 @@ void PPPreprocessor::PrescanDeferredNames(const std::vector<PPToken>& tokens)
 
         const std::string& kind = tokens[i + 2].Spelling;
 
-        if (kind != "multi_compile" && kind != "shader_feature")
+        size_t begin = 0;
+
+        if (kind == "multi_compile" || kind == "shader_feature")
+        {
+            begin = i + 3;
+        }
+        else if (kind == "kernel")
+        {
+            begin = i + 3;
+
+            if (begin < tokens.size() && tokens[begin].Is(PPType::Identifier))
+                ++begin;
+        }
+        else
+        {
             continue;
+        }
 
         const size_t lineEnd = FindLineEnd(tokens, i);
         std::vector<std::string> names;
 
-        for (size_t k = i + 3; k < lineEnd; ++k)
+        for (size_t k = begin; k < lineEnd; ++k)
         {
             if (tokens[k].Is(PPType::Identifier) && tokens[k].Spelling != "_")
                 names.push_back(tokens[k].Spelling);
@@ -206,7 +220,6 @@ void PPPreprocessor::HandleDirective(PPFileId file, const std::vector<PPToken>& 
 
 void PPPreprocessor::HandleDefine(const std::vector<PPToken>& tokens, size_t hashIndex, size_t lineEnd)
 {
-    // deferred 区内的 #define 不能执行 —— 该分支未必成立；原样透传交由 glslang 决定
     if (InDeferred())
     {
         if (IsEmitting())
@@ -232,7 +245,6 @@ void PPPreprocessor::HandleDefine(const std::vector<PPToken>& tokens, size_t has
 
     size_t cursor = nameIndex + 1;
 
-    // 函数式宏的 '(' 必须紧贴宏名，中间有空白就是对象宏
     if (cursor < lineEnd && tokens[cursor].IsPunct("(") && !tokens[cursor].LeadingSpace)
     {
         macro.FunctionLike = true;
@@ -339,14 +351,12 @@ void PPPreprocessor::HandlePragma(PPFileId file, const std::vector<PPToken>& tok
 
         if (!decl.Keywords.empty())
         {
-            // 关键字即刻并入 deferred 集合，供本行之后的 #if 使用
             m_Macros.AddDeferredNames(decl.Keywords);
 
             if (IsEmitting())
                 m_Variants.push_back(std::move(decl));
         }
 
-        // 不写进输出 —— 真实编译期由调用方按所选变体注入 #define <keyword>
         return;
     }
 
@@ -360,7 +370,6 @@ void PPPreprocessor::HandleError(const std::vector<PPToken>& tokens, size_t hash
     if (!IsEmitting())
         return;
 
-    // deferred 区里这条指令未必生效，原样留给 glslang
     if (InDeferred())
     {
         EmitRaw(tokens, hashIndex, lineEnd);
@@ -502,8 +511,6 @@ void PPPreprocessor::HandleConditional(PPFileId file, const std::vector<PPToken>
 
             if (PPExprIsConst(cond))
             {
-                // 该分支当场定死。恒真则等同 #else，且其后分支一律不再保留；
-                // 恒假只是这一支不产出 —— 后面的 #elif 还得照常求值，不能连坐
                 if (PPExprConstValue(cond) != 0 && !frame.SuppressRest)
                 {
                     frame.SuppressRest = true;
@@ -554,7 +561,6 @@ void PPPreprocessor::HandleConditional(PPFileId file, const std::vector<PPToken>
             return;
         }
 
-        // `#if 0 / #elif <deferred>` 等价于 `#if <deferred>` —— 前面一支没产出任何东西，整帧升格为 deferred
         frame.S = CondFrame::State::Deferred;
         frame.Emitting = frame.ParentEmitting;
 
@@ -668,7 +674,6 @@ void PPPreprocessor::HandleInclude(PPFileId file, const std::vector<PPToken>& to
         return;
     }
 
-    // deferred 区内的副本受条件约束，不能登记进全局 include-once，否则其他变体会缺内容
     flags |= deferred ? 2 : 1;
 
     if (m_Depth >= kMaxIncludeDepth)
@@ -746,7 +751,6 @@ void PPPreprocessor::EmitRun(const std::vector<PPToken>& run)
     if (!IsEmitting() || run.empty())
         return;
 
-    // deferred 区内的宏照样展开 —— 宏表里没有的（即那些在 deferred 分支里 #define 的）自然原样透传
     const std::vector<PPToken> expanded = m_Macros.Expand(run, &m_Diag);
 
     for (const PPToken& token : expanded)

@@ -33,7 +33,7 @@ private:
     SourceLocation CurrentLoc();
     void Error(const std::string& msg);
 
-    // Token 文本取值（通过 SourceManager）
+    // Token 文本取值
     std::string_view TokenText(const Token& t) const;
     std::string TokenStr(const Token& t) const;
     float TokenFloat(const Token& t) const;

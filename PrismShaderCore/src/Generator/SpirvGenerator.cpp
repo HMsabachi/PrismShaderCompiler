@@ -51,7 +51,6 @@ namespace PrismShaderCompiler
         }
         shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_0);
 
-        // preamble 在 #version 之前处理，但不影响 #version 的合法性（glslang 明文保证）
         std::string preamble = "#extension GL_GOOGLE_cpp_style_line_directive : enable\n";
         preamble += (backend == TargetBackend::Vulkan)
             ? "#define PRISM_BACKEND_VULKAN 1\n"

@@ -72,7 +72,6 @@ AST::ShaderDocument Parser::ParseShader()
                 }
                 else if (Check(TokenType::RenderCommandKw))
                 {
-                    // SubShader
                     Advance();
                     Consume(TokenType::LeftBrace, "期望 '{'");
                     doc.RenderState = ParseRenderCommand();
@@ -263,7 +262,6 @@ void Parser::ParsePropertyType(AST::ShaderUniform& uniform)
 
 std::vector<Scalar> Parser::ParseDefaultValue(PropertyType type)
 {
-    // 元组: (x, y, z, w) — 用于 Color/Vector/Color3
     auto ParseTuple = [this]() -> std::vector<Scalar> {
         std::vector<Scalar> scalars;
         Consume(TokenType::LeftParen, "期望 '('");
@@ -351,7 +349,6 @@ PipelineState Parser::ParseRenderCommand()
             {
                 state.BlendEnabled = true;
                 state.Mark(PipelineState::Field::BlendEnabled);
-                // SrcFactor DstFactor [SrcAlpha DstAlpha]
                 if (Check(TokenType::SrcAlphaKw))     { Advance(); state.SrcFactor = BlendFactor::SrcAlpha; }
                 else if (Check(TokenType::OneKw))      { Advance(); state.SrcFactor = BlendFactor::One; }
                 else if (Check(TokenType::ZeroKw))     { Advance(); state.SrcFactor = BlendFactor::Zero; }
@@ -368,7 +365,6 @@ PipelineState Parser::ParseRenderCommand()
                 else if (Check(TokenType::OneMinusDstAlphaKw)) { Advance(); state.DstFactor = BlendFactor::OneMinusDstAlpha; }
                 state.Mark(PipelineState::Field::DstFactor);
 
-                // 可选的独立 alpha blend 参数
                 if (!Check(TokenType::RightBrace) && !Check(TokenType::CullKw)
                     && !Check(TokenType::ZTestKw) && !Check(TokenType::ZWriteKw) && !Check(TokenType::BlendKw)
                     && !Check(TokenType::ColorMaskKw) && !Check(TokenType::OffsetKw)

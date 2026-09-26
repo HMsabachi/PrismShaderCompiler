@@ -18,16 +18,12 @@ struct PPMacro
     std::string Name;
     bool FunctionLike = false;
     bool Variadic = false;
-    std::string VariadicName = "__VA_ARGS__";   // 具名变参（C++20 `Args...`）时的名字
-    std::vector<std::string> Params;            // 仅固定参数
-    std::vector<PPToken> Body;                  // 替换列表，不含自身名字
+    std::string VariadicName = "__VA_ARGS__";
+    std::vector<std::string> Params;
+    std::vector<PPToken> Body;
     PPSourceLoc Loc;
 };
 
-// 宏表与展开引擎。
-//
-// deferred 集合内的名字一律不展开、原样透传 —— 内层无从知道它是否被定义，
-// 交由真实编译期的 glslang 按注入的 #define 处理。
 class MacroTable
 {
 public:
@@ -41,17 +37,13 @@ public:
     void AddDeferredNames(const std::vector<std::string>& names);
     bool IsDeferred(std::string_view name) const;
 
-    // 完全展开（含 defined 操作数）
     std::vector<PPToken> Expand(const std::vector<PPToken>& input, DiagnosticCollector* diag);
 
-    // 条件行展开：defined 的操作数不展开
     std::vector<PPToken> ExpandCondition(const std::vector<PPToken>& input, DiagnosticCollector* diag);
 
-    // 已展开至无宏可扩（用于判断参数是否涉及宏）
     void SetCounter(uint32_t value) { m_Counter = value; }
 
 private:
-    // 展开过程中的 token —— 比 PPToken 多一个隐藏集，实现蓝漆（不再重复展开自身）
     struct ExpToken
     {
         PPToken Tok;
@@ -75,10 +67,8 @@ private:
     static std::vector<std::string> IntersectHide(const std::vector<std::string>& a,
                                                   const std::vector<std::string>& b);
 
-    // 替换列表里的 token 一律脱掉源范围 —— 它们的位置属于宏定义，不属于输出
     static ExpToken MakeLiteral(const PPToken& tok, const PPSourceLoc& loc,
                                 const std::vector<std::string>& hide);
-    // LeadingSpace 由调用点决定：合成 token 顶替的是调用点，空白得跟着调用点走
     static ExpToken MakeSynthetic(PPType type, std::string spelling, const PPSourceLoc& loc,
                                   const std::vector<std::string>& hide, bool leadingSpace = false);
     static ExpToken MakeStringized(const std::vector<ExpToken>& arg, const PPSourceLoc& loc,

@@ -22,7 +22,6 @@ bool IsSpace(char c)
     return c == ' ' || c == '\t' || c == '\v' || c == '\f' || c == '\r';
 }
 
-// 阶段 4 接入文件表后补上 FilePath
 SourceLocation ToDiagLoc(const PPSourceLoc& loc)
 {
     SourceLocation out;
@@ -374,7 +373,6 @@ std::vector<PPToken> PPLexer::Tokenize(DiagnosticCollector* diag)
         m_AtLineStart = false;
     }
 
-    // EOF 的 tokenStart 取源末尾，使尾部残余（空白与结尾续行）全部落入其 trivia
     const PPSourceLoc eofLoc{m_File, m_Line, m_Column};
     EmitToken(out, PPType::EndOfFile, std::string(),
               static_cast<uint32_t>(m_Source.size()), eofLoc);

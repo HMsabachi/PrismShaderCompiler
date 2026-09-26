@@ -4,13 +4,12 @@
 #include "PSL/Parser.h"
 #include "PSL/Diagnostics.h"
 #include "Inner/InnerCompiler.h"
+#include "Inner/ComputeRewrite.h"
 #include "Generator/SpirvGenerator.h"
 #include "Generator/GLSLGenerator.h"
 #include "Generator/HLSLGenerator.h"
 #include "Generator/MSLGenerator.h"
-#include "Generator/ComputeIRGenerator.h"
 #include "Generator/ReflectionGenerator.h"
-#include "CSL/Parser.h"
 #include <algorithm>
 #include <exception>
 #include <fstream>
@@ -22,20 +21,36 @@ namespace PrismShaderCompiler
 namespace
 {
 
-// 内层编译器只吃「GLSL 块 + Properties + 路径」，外层把 Pass 上的这部分切出来给它。
+InnerReadFileFn MakeReadFile(const ReadFileCallback& readFile)
+{
+    return [readFile](const std::string& path, std::string& out)
+    {
+        out = readFile(path);
+        return !out.empty();
+    };
+}
+
+void FillInnerConfig(InnerConfig& inner, const CompilerConfig& config, const std::string& sourcePath)
+{
+    inner.SourcePath = sourcePath;
+    inner.IncludeRoot = config.IncludeRoot;
+    inner.GlslVersion = config.GlslVersion;
+    inner.MaterialBlockName = config.MaterialBlockName;
+    inner.OpenGLMaterialUniformBufferBinding = config.OpenGLMaterialUniformBufferBinding;
+    inner.OpenGLTextureBeginBinding = config.OpenGLTextureBeginBinding;
+    inner.VulkanMaterialUniformBufferSet = config.VulkanMaterialUniformBufferSet;
+    inner.VulkanMaterialUniformBufferBinding = config.VulkanMaterialUniformBufferBinding;
+    inner.VulkanTextureBeginSet = config.VulkanTextureBeginSet;
+    inner.VulkanTextureBeginBinding = config.VulkanTextureBeginBinding;
+}
+
 void FillInnerParams(InnerParams& params, const CompiledShader& shader, uint32_t passIndex,
                      const CompilerConfig& config)
 {
     const AST::GLSLCode& glsl = shader.Passes[passIndex].Glsl;
 
     params.GlslBlock = glsl.RawSource;
-
-    const ReadFileCallback readFile = config.ReadFile;
-    params.ReadFile = [readFile](const std::string& path, std::string& out)
-    {
-        out = readFile(path);
-        return !out.empty();
-    };
+    params.ReadFile = MakeReadFile(config.ReadFile);
 
     for (const AST::ShaderUniform& uniform : shader.Uniforms)
     {
@@ -46,17 +61,16 @@ void FillInnerParams(InnerParams& params, const CompiledShader& shader, uint32_t
         params.Properties.push_back(std::move(property));
     }
 
-    InnerConfig& inner = params.Config;
-    inner.SourcePath = glsl.Loc.FilePath;
-    inner.IncludeRoot = config.IncludeRoot;
-    inner.GlslVersion = config.GlslVersion;
-    inner.MaterialBlockName = config.MaterialBlockName;
-    inner.OpenGLMaterialUniformBufferBinding = config.OpenGLMaterialUniformBufferBinding;
-    inner.OpenGLTextureBeginBinding = config.OpenGLTextureBeginBinding;
-    inner.VulkanMaterialUniformBufferSet = config.VulkanMaterialUniformBufferSet;
-    inner.VulkanMaterialUniformBufferBinding = config.VulkanMaterialUniformBufferBinding;
-    inner.VulkanTextureBeginSet = config.VulkanTextureBeginSet;
-    inner.VulkanTextureBeginBinding = config.VulkanTextureBeginBinding;
+    FillInnerConfig(params.Config, config, glsl.Loc.FilePath);
+}
+
+void FillComputeParams(ComputeInnerParams& params, const CompiledComputeShader& shader,
+                       const CompilerConfig& config)
+{
+    params.Source = shader.Source;
+    params.ReadFile = MakeReadFile(config.ReadFile);
+
+    FillInnerConfig(params.Config, config, shader.SourcePath);
 }
 
 } // namespace
@@ -297,7 +311,7 @@ void FillInnerParams(InnerParams& params, const CompiledShader& shader, uint32_t
     }
 
 
-    PassOutput ShaderCompiler::GenerateIR(const CompiledShader& shader, uint32_t passIndex, const std::vector<std::string>& keywords /*= {}*/)
+    PassOutput ShaderCompiler::GenerateIR(const CompiledShader& shader, uint32_t passIndex, const std::vector<std::string>& keywords)
     {
         PassOutput out;
         if (passIndex >= shader.Passes.size())
@@ -393,59 +407,22 @@ void FillInnerParams(InnerParams& params, const CompiledShader& shader, uint32_t
     {
         CompiledComputeShader result;
 
+        ComputeInnerParams params;
+        params.Source = source;
+        params.ReadFile = MakeReadFile(m_Config.ReadFile);
+        FillInnerConfig(params.Config, m_Config, virtualPath);
+
         DiagnosticCollector diag;
-        SourceManager sm(source.c_str(), static_cast<uint32_t>(source.size()));
-        sm.SetFilePath(virtualPath);
+        ComputeRewriter rewriter(diag);
 
-        if (!sm.IsValid())
-        {
-            Log::Instance().Error("SourceManager failed for '{}'", virtualPath);
-            return result;
-        }
-
-        TokenStream stream(sm, &diag);
-        CSL::Parser parser(stream, &diag);
-        auto doc = parser.ParseComputeShader();
-
-        if (diag.HasErrors())
+        if (!rewriter.Analyze(params, result))
         {
             diag.PrintAll();
-            return result;
+            return CompiledComputeShader();
         }
-
-        result.GlslVersion = doc.GlslVersion;
-        result.SharedStartLoc = doc.SharedStartLoc;
-        result.SharedSource = std::move(doc.SharedSource);
-        result.Resources = std::move(doc.Resources);
-        result.Uniforms = std::move(doc.Uniforms);
 
         if (!virtualPath.empty())
             result.ShaderName = std::filesystem::path(virtualPath).stem().string();
-
-        for (auto& def : doc.Kernels)
-        {
-            CompiledComputeShader::KernelInfo ki;
-            ki.Name = def.Name;
-            ki.GroupSizeX = def.GroupSizeX;
-            ki.GroupSizeY = def.GroupSizeY;
-            ki.GroupSizeZ = def.GroupSizeZ;
-            ki.FunctionSource = std::move(def.FunctionSource);
-            ki.DefLoc = def.Loc;
-            ki.DefAfterLoc = def.AfterLoc;
-            ki.DefInsertID = def.InsertID;
-
-            auto declIt = std::find_if(doc.KernelDecls.begin(), doc.KernelDecls.end(),
-                [&](const CSL::KernelDecl& d) { return d.Name == def.Name; });
-            if (declIt != doc.KernelDecls.end())
-            {
-                ki.VariantDefines = declIt->VariantDefines;
-                ki.DeclLoc = declIt->Loc;
-                ki.DeclAfterLoc = declIt->AfterLoc;
-                ki.DeclInsertID = declIt->InsertID;
-            }
-
-            result.Kernels.push_back(std::move(ki));
-        }
 
         for (const auto& res : result.Resources)
         {
@@ -482,14 +459,33 @@ void FillInnerParams(InnerParams& params, const CompiledShader& shader, uint32_t
             return out;
         }
 
-        ComputeIRGen::SetConfig(m_Config);
-        auto ir = ComputeIRGen::Generate(shader, kernelIndex);
-        out.Source = std::move(ir.Source);
+        ComputeInnerParams params;
+        FillComputeParams(params, shader, m_Config);
+
+        DiagnosticCollector diag;
+        ComputeRewriter rewriter(diag);
+
+        out.Source = rewriter.Emit(params, kernelIndex);
+
+        for (const Diagnostic& d : diag.GetDiagnostics())
+        {
+            if (d.Level == Severity::Warning)
+                out.Warnings.push_back(d.Message);
+            else
+                out.Errors.push_back(d.Message);
+        }
+
         return out;
     }
 
     ComputeKernelOutput ShaderCompiler::GenerateComputeSPIRV(const CompiledComputeShader& shader,
         uint32_t kernelIndex)
+    {
+        return GenerateComputeSPIRVImpl(shader, kernelIndex, TargetBackend::Vulkan);
+    }
+
+    ComputeKernelOutput ShaderCompiler::GenerateComputeSPIRVImpl(const CompiledComputeShader& shader,
+        uint32_t kernelIndex, TargetBackend backend)
     {
         ComputeKernelOutput out;
         if (kernelIndex >= shader.Kernels.size())
@@ -506,7 +502,8 @@ void FillInnerParams(InnerParams& params, const CompiledShader& shader, uint32_t
             return out;
         }
 
-        auto spv = CompileGLSL(ir.Source, ShaderStageType::Compute);
+        const std::vector<std::string>& keywords = shader.Kernels[kernelIndex].VariantDefines;
+        auto spv = CompileGLSL(ir.Source, ShaderStageType::Compute, backend, keywords);
         out.Spirv = std::move(spv.Bytecode);
         out.Errors = std::move(spv.Errors);
         out.Warnings = std::move(spv.Warnings);
@@ -518,7 +515,7 @@ void FillInnerParams(InnerParams& params, const CompiledShader& shader, uint32_t
     ComputeKernelOutput ShaderCompiler::GenerateComputeGLSL(const CompiledComputeShader& shader,
         uint32_t kernelIndex)
     {
-        auto out = GenerateComputeSPIRV(shader, kernelIndex);
+        auto out = GenerateComputeSPIRVImpl(shader, kernelIndex, TargetBackend::OpenGL);
         if (!out.Spirv.empty())
         {
             try

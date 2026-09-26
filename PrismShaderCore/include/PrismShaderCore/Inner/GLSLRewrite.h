@@ -2,6 +2,7 @@
 
 #include "InnerTypes.h"
 #include "PPPreprocessor.h"
+#include "RewriteUtil.h"
 #include "../PSL/GLSLType.h"
 #include "../Property/VertexType.h"
 
@@ -13,25 +14,13 @@
 namespace PrismShaderCompiler
 {
 
-class PPFileTable;
 class DiagnosticCollector;
-class GLSLWriter;
 
-// 内层 GLSL 前端是「块级结构改写器」，不是完整 GLSL 语法分析器。
-//
-// 理由：函数体是逐字透传的（旧 IRGenerator 直接拼 glsl.Vertex.Source），
-// 真正参与改写的只有 PSL 级声明 —— attribute / varying / void vert|frag /
-// layout(location = N) out。写一套 GLSL 表达式与语句文法没有任何消费者。
-//
-// 改写跑在预处理输出的「带条件标记的线性 token 流」上：条件标记原样重建，
-// deferred 区内的 token 逐字回写原文，重写点在合成文本之后重新锚定 #line。
 class GLSLRewriter
 {
 public:
     GLSLRewriter(const PPFileTable& files, const InnerConfig& config, DiagnosticCollector& diag);
 
-    // vertexStage 决定 attribute / varying 的方向与 main 的装配方式。
-    // 解析失败时返回空串。
     std::string Emit(const std::vector<PPItem>& items,
                      const std::vector<InnerProperty>& properties,
                      bool vertexStage);
@@ -77,10 +66,10 @@ private:
     struct EntryDecl
     {
         bool Valid = false;
-        size_t Begin = 0;       // 'void'
-        size_t BodyBegin = 0;   // '{' 之后的首个 item
-        size_t BodyEnd = 0;     // '}' 之前的末个 item
-        size_t End = 0;         // '}'
+        size_t Begin = 0;
+        size_t BodyBegin = 0;
+        size_t BodyEnd = 0;
+        size_t End = 0;
         PPSourceLoc Loc;
     };
 
@@ -94,8 +83,8 @@ private:
 
     struct Plan
     {
-        std::vector<bool> Skip;                                 // 被声明整体吃掉的 item
-        std::unordered_map<size_t, std::string> Replacements;   // 下标 -> 替身文本（空串 = 丢弃）
+        std::vector<bool> Skip;
+        std::unordered_map<size_t, std::string> Replacements;
 
         std::vector<FragOutputDecl> FragOutputs;
 

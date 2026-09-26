@@ -12,11 +12,8 @@ namespace PrismShaderCompiler
 namespace
 {
 
-// 条件行里 defined 的操作数不得展开，用哨兵隐藏集把它们钉住。
-// \x 转义会吞掉后续所有十六进制位，所以必须拆成两个字面量拼接
 const char* const kDefinedOperandMarker = "\x01" "defined";
 
-// 单次展开的 token 处理上限，防病态输入把编译卡死
 constexpr int kExpansionStepLimit = 500000;
 
 } // namespace
@@ -192,7 +189,6 @@ MacroTable::ExpToken MacroTable::PasteTokens(const ExpToken& left, const ExpToke
 void MacroTable::PasteInto(std::vector<ExpToken>& out, const std::vector<ExpToken>& rhs,
                            const PPSourceLoc& loc, DiagnosticCollector* diag)
 {
-    // 空实参在 ## 两侧是 placemarker：保留另一侧原样
     if (rhs.empty())
         return;
 
@@ -262,7 +258,6 @@ bool MacroTable::CollectArguments(const std::vector<ExpToken>& input, size_t ope
             continue;
         }
 
-        // 换行在 PP-token 世界里等同空白，实参里一律剔掉
         if (tok.Is(PPType::NewLine))
             continue;
 
@@ -370,7 +365,6 @@ std::vector<MacroTable::ExpToken> MacroTable::Instantiate(
     const bool variadicEmpty = !macro.Variadic || argAt(variadicIndex).empty();
     const std::vector<PPToken>& body = macro.Body;
 
-    // 替换列表里参数前的空白属于替换列表本身，不随实参走 —— 补到首个代入 token 上
     auto substitute = [&](std::vector<ExpToken>& dst, const std::vector<ExpToken>& src, bool leadingSpace)
     {
         const size_t before = dst.size();
@@ -387,14 +381,12 @@ std::vector<MacroTable::ExpToken> MacroTable::Instantiate(
     {
         const PPToken& bt = body[k];
 
-        // # 参数 —— 取未展开的实参原文
         if (bt.IsPunct("#") && k + 1 < body.size())
         {
             const int pi = paramIndex(body[k + 1].Spelling);
 
             if (pi >= 0)
             {
-                // 字符串化产物顶替的是 body 里的 `#`，空白跟着它走（同 MakeLiteral）
                 out.push_back(MakeStringized(argAt(static_cast<size_t>(pi)), bt.Loc, hide));
                 out.back().Tok.LeadingSpace = bt.LeadingSpace;
                 k += 2;
@@ -411,8 +403,6 @@ std::vector<MacroTable::ExpToken> MacroTable::Instantiate(
 
             const int pi = paramIndex(body[k].Spelling);
 
-            // GNU 扩展 `, ## __VA_ARGS__`：变参为空时连逗号一起去掉，非空时 ## 退化为普通拼接。
-            // 标准 C 在这里会把逗号与实参首 token 粘成一个非法 token，所以必须特判。
             if (macro.Variadic && pi == static_cast<int>(variadicIndex)
                 && !out.empty() && out.back().Tok.IsPunct(","))
             {
@@ -468,7 +458,6 @@ std::vector<MacroTable::ExpToken> MacroTable::Instantiate(
             {
                 if (macro.Variadic && index == variadicIndex && argAt(index).empty())
                 {
-                    // GNU 逗号吞并：变参为空时连它前面的逗号一起去掉
                     if (!out.empty() && out.back().Tok.IsPunct(","))
                         out.pop_back();
                 }
@@ -496,8 +485,6 @@ std::vector<MacroTable::ExpToken> MacroTable::Instantiate(
 std::vector<MacroTable::ExpToken> MacroTable::ExpandTokens(std::vector<ExpToken> input,
                                                            DiagnosticCollector* diag)
 {
-    // 调用点前的空白属于调用点本身。替换列表首 token 带的是「宏名与替换列表之间的
-    // 分隔符」，不是输出该有的缩进 —— 不覆盖的话 `A + A` 会缩成 `1 +1`。
     auto adoptLeadingSpace = [](std::vector<ExpToken>& repl, bool leadingSpace)
     {
         if (!repl.empty())
@@ -545,7 +532,6 @@ std::vector<MacroTable::ExpToken> MacroTable::ExpandTokens(std::vector<ExpToken>
             continue;
         }
 
-        // deferred 名字一律不展开 —— 内层不知道它是否被定义
         if (IsDeferred(name) || HasHide(cur.Hide, name))
         {
             out.push_back(std::move(cur));
@@ -577,7 +563,6 @@ std::vector<MacroTable::ExpToken> MacroTable::ExpandTokens(std::vector<ExpToken>
             continue;
         }
 
-        // 函数宏：实参列表的 '(' 允许跨行
         size_t open = i + 1;
 
         while (open < input.size() && input[open].Tok.Is(PPType::NewLine))
