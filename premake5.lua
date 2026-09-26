@@ -14,6 +14,7 @@ outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
     -- 子项目
     include "PrismShaderCore"
     include "psc"
+    include "PSC-Tests"
 
 
     -- 公共过滤配置
